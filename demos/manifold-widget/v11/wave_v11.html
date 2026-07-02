@@ -1,0 +1,3657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Make/Break Wave Manipulation v11</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0e0e0d;--panel:#161513;--border:rgba(255,255,255,0.07);--text:#d8d4cf;--muted:#5a5650;--teal:#4ecdc4;--amber:#f7c59f;--rose:#e07a7a}
+body{background:var(--bg);color:var(--text);font-family:'Georgia',serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px;gap:14px}
+h1{font-size:17px;font-weight:400;letter-spacing:.04em}
+h1 span{color:var(--muted);font-size:12px;font-style:italic;margin-left:8px}
+
+#mainRow{display:flex;gap:12px;align-items:flex-start;width:100%;max-width:960px}
+#canvasWrap{position:relative;background:var(--panel);border-radius:16px;border:1px solid var(--border);box-shadow:0 16px 60px rgba(0,0,0,.6);overflow:hidden;flex-shrink:0}
+#ringCanvas{display:block}
+#playBtn{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:var(--text);cursor:pointer;padding:4px 10px;font-size:13px;font-family:monospace}
+
+#wavePanel{flex:1;min-width:160px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:9px 10px 8px;display:flex;flex-direction:column;gap:0}
+.wpHdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;margin-top:7px}
+.wpHdr:first-child{margin-top:0}
+.wpHdr h3{font-size:9px;font-weight:400;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.wpHdr .wbtn{font-size:9px;color:rgba(78,205,196,.55);font-family:monospace;cursor:pointer;user-select:none;padding:1px 5px;border-radius:4px;border:1px solid rgba(78,205,196,.2)}
+.wpHdr .wbtn:hover,.wpHdr .wbtn.on{background:rgba(78,205,196,.15);color:var(--teal)}
+.wc{display:block;width:100%;background:#0f0f0e;border-radius:3px}
+.wpDiv{height:1px;background:rgba(255,255,255,.04);margin:5px 0 0}
+
+#controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px 18px;width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 15px}
+.ctrl{display:flex;flex-direction:column;gap:4px}
+.ctrl label{font-size:10.5px;color:var(--muted);font-family:'Georgia',serif;display:flex;justify-content:space-between;align-items:baseline}
+.ctrl label em{font-family:monospace;font-style:normal;color:var(--amber);font-size:10.5px}
+input[type=range]{width:100%;accent-color:var(--teal);cursor:pointer;height:3px}
+.ctrlRow{display:flex;gap:7px;align-items:center}
+.ctrlRow input[type=range]{flex:1;min-width:0}
+.numIn{width:50px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:monospace;font-size:10px;padding:2px 4px;text-align:right;outline:none}
+.numIn:focus{border-color:rgba(78,205,196,0.45)}
+.numIn::-webkit-outer-spin-button,.numIn::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.numIn[type=number]{-moz-appearance:textfield}
+
+/* Wave panes (one per wave in S.waves; generated dynamically) */
+.wavePane{grid-column:1/-1;border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:8px;padding:8px 12px 4px;margin:5px 0;background:rgba(255,255,255,0.012)}
+.wavePane.panelSel{background:rgba(78,205,196,0.05)}
+.waveHeader{display:flex;align-items:center;gap:10px;margin-bottom:7px;flex-wrap:wrap}
+.waveLabel{font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:500}
+.waveControls{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px 14px}
+.surfSel{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:10px;padding:2px 6px;border-radius:4px;cursor:pointer;outline:none}
+.surfSel:focus{border-color:rgba(78,205,196,0.45)}
+.removeWaveBtn{background:rgba(224,122,122,0.15);border:1px solid rgba(224,122,122,0.4);color:var(--rose);font-family:monospace;font-size:11px;line-height:1;padding:2px 8px;border-radius:4px;cursor:pointer;margin-left:auto}
+.removeWaveBtn:hover{background:rgba(224,122,122,0.25)}
+.selectPanelBtn{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer}
+.selectPanelBtn.on{background:rgba(78,205,196,0.15);border-color:rgba(78,205,196,0.4);color:var(--teal)}
+.addWaveBtnWrap{grid-column:1/-1;text-align:center;margin:2px 0 4px}
+.addWaveBtn{background:rgba(78,205,196,0.10);border:1px solid rgba(78,205,196,0.35);color:var(--teal);font-family:inherit;font-size:11px;padding:5px 14px;border-radius:5px;cursor:pointer;margin:0 4px}
+.addWaveBtn:hover{background:rgba(78,205,196,0.18)}
+.addWaveBtn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none}
+.seg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.seg button{flex:1;border:none;background:transparent;color:var(--muted);cursor:pointer;padding:4px 5px;font-size:10px;font-family:'Georgia',serif;transition:all .12s}
+.seg button.on{background:rgba(78,205,196,.14);color:var(--teal)}
+
+#fingerToggleWrap{width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px}
+#fingerToggleWrap h3{font-size:9px;font-weight:400;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+#fingerRow{display:flex;flex-wrap:wrap;gap:5px}
+.ftog{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(78,205,196,.4);background:rgba(78,205,196,.12);color:rgba(78,205,196,.7);font-size:9px;font-family:monospace;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;user-select:none}
+.ftog.off{border-color:rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.2)}
+.ftog.inner{border-color:rgba(224,122,122,.55);background:rgba(224,122,122,.15);color:rgba(224,122,122,.85)}
+.ftog.inner.off{border-color:rgba(224,122,122,.15);background:transparent;color:rgba(224,122,122,.3)}
+
+#gaitWrap{width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 12px 8px}
+#gaitWrap h3{font-size:9px;font-weight:400;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+#gaitCanvas{display:block;width:100%;border-radius:4px}
+
+#eqn{width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-family:monospace;font-size:10px;color:#4a4642;line-height:1.9}
+
+#revealWrap{width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px}
+#revealWrap h3{font-size:9px;font-weight:400;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+#revealRow{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+#revealRow .rbtn{font-size:10px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-family:'Georgia',serif;transition:all .12s}
+#revealRow .rbtn:hover{border-color:rgba(224,122,122,.4)}
+#revealRow .rbtn.on{background:rgba(224,122,122,.14);color:var(--rose);border-color:rgba(224,122,122,.4)}
+#resetReveal{font-size:9px;padding:3px 8px;border:1px solid rgba(224,122,122,.3);border-radius:5px;background:rgba(224,122,122,.08);color:var(--rose);cursor:pointer;font-family:monospace;margin-left:auto}
+#resetReveal:hover{background:rgba(224,122,122,.18)}
+
+#drawWrap{width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px;display:none}
+#drawWrap.active{display:block}
+#drawWrap h3{font-size:9px;font-weight:400;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+#drawRow{display:flex;gap:10px;align-items:flex-start}
+#drawCanvas{background:#0f0f0e;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:crosshair;flex-shrink:0}
+#drawInfo{font-size:9px;color:var(--muted);font-family:monospace;line-height:1.7;flex:1}
+#drawInfo button{font-size:9px;padding:3px 8px;border:1px solid rgba(78,205,196,.3);border-radius:5px;background:rgba(78,205,196,.08);color:var(--teal);cursor:pointer;font-family:monospace;margin:2px 3px 2px 0}
+#drawInfo button:hover{background:rgba(78,205,196,.18)}
+#revealCoverage{font-size:9px;color:var(--muted);font-family:monospace;margin-left:8px}
+</style>
+</head>
+<body>
+<h1>Make / Break Wave Manipulation <span>v11 — composable primitives</span></h1>
+
+<div id="mainRow">
+  <div id="canvasWrap">
+    <canvas id="ringCanvas"></canvas>
+    <button id="playBtn">⏸</button>
+    <div style="position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:3px">
+      <button class="zbtn" id="zoomIn" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--text);cursor:pointer;padding:2px 7px;font-size:14px;font-family:monospace;line-height:1">+</button>
+      <button class="zbtn" id="zoomOut" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--text);cursor:pointer;padding:2px 7px;font-size:14px;font-family:monospace;line-height:1">−</button>
+      <button class="zbtn" id="zoomReset" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--text);cursor:pointer;padding:2px 5px;font-size:8px;font-family:monospace;line-height:1.3">1:1</button>
+      <button class="zbtn" id="posReset" title="reset body position and angle to origin" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--text);cursor:pointer;padding:2px 5px;font-size:8px;font-family:monospace;line-height:1.3;margin-top:4px">⟲ pos</button>
+    </div>
+    <div id="corDisplay" style="position:absolute;bottom:8px;right:10px;font:8px monospace;color:rgba(255,255,255,0.25)"></div>
+  </div>
+  <div id="wavePanel">
+    <div class="wpHdr">
+      <h3>Surface r(θ<sub>obj</sub>) — object profile</h3>
+      <div style="display:flex;gap:3px">
+        <span class="wbtn on" id="wbAll">all</span>
+        <span class="wbtn" id="wbOne">one</span>
+        <span class="wbtn" id="wbNone">none</span>
+      </div>
+    </div>
+    <canvas class="wc" id="wcSurface" height="60"></canvas>
+    <div class="wpDiv"></div>
+    <div class="wpHdr"><h3>Make/break wave W(θ<sub>obj</sub>,t)</h3></div>
+    <canvas class="wc" id="wcRadial" height="80"></canvas>
+    <div class="wpDiv"></div>
+    <div class="wpHdr"><h3>Tangential sawtooth — sweep position per finger</h3></div>
+    <canvas class="wc" id="wcSaw" height="120"></canvas>
+    <div class="wpDiv"></div>
+    <div class="wpHdr"><h3>Trajectory — unrolled (θ<sub>obj</sub>, r) view of GUI</h3></div>
+    <canvas class="wc" id="wcSum" height="110"></canvas>
+    <div class="wpDiv"></div>
+    <div class="wpHdr"><h3>Orbit wave Δ(t) — Cartesian</h3></div>
+    <canvas class="wc" id="wcOrbit" height="80"></canvas>
+  </div>
+</div>
+
+<div id="controls">
+  <div style="grid-column:1/-1;margin-bottom:2px;padding:6px 8px;background:rgba(105,165,165,0.06);border:1px solid rgba(105,165,165,0.18);border-radius:5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);font-weight:500">Wave frame</span>
+    <div class="seg"><button id="btnFrameRing">Ring</button><button id="btnFrameObj" class="on">Object</button></div>
+    <span style="font-size:9px;color:var(--muted);font-style:italic" id="frameHint">wave locked to object body; fingers grab material points on contact, hold during rotation</span>
+  </div>
+  <div style="grid-column:1/-1;margin-bottom:-4px">
+    <span style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--teal);font-weight:400">① Hand</span>
+    <span style="font-size:9px;color:var(--muted);font-style:italic;margin-left:8px">resultant body motion (ω<sub>obj</sub>, v<sub>cm</sub>) appears in the equation bar below — it's the superposition of per-wave contributions</span>
+  </div>
+  <div class="ctrl">
+    <label>Fingers  n <em id="nVal">8</em></label>
+    <input type="range" id="nSlider" min="4" max="24" step="1" value="8">
+  </div>
+
+  <!-- Waves: dynamically generated panes -->
+  <div id="wavePanesContainer" style="grid-column:1/-1;margin-top:4px"></div>
+  <div class="addWaveBtnWrap">
+    <button id="addRotationWaveBtn" class="addWaveBtn">+ rotation</button>
+    <button id="addTranslateXBtn" class="addWaveBtn">+ translate x</button>
+    <button id="addTranslateYBtn" class="addWaveBtn">+ translate y</button>
+    <button id="addOrbitWaveBtn" class="addWaveBtn">+ orbit</button>
+    <button id="addOrbitRollBtn" class="addWaveBtn">+ orbit roll</button>
+  </div>
+
+  <div style="grid-column:1/-1;margin-bottom:-4px;margin-top:6px;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px">
+    <span style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:#9ec5e8;font-weight:400">② Orbit wave — Cartesian translation of object centroid</span>
+  </div>
+  <div class="ctrl">
+    <label>Static offset x <em id="orbX0Val">0.00</em></label>
+    <input type="range" id="orbX0Slider" min="-0.30" max="0.30" step="0.005" value="0">
+  </div>
+  <div class="ctrl">
+    <label>Static offset y <em id="orbY0Val">0.00</em></label>
+    <input type="range" id="orbY0Slider" min="-0.30" max="0.30" step="0.005" value="0">
+  </div>
+  <div class="ctrl">
+    <label>Orbit amplitude x <em id="orbAxVal">0.00</em></label>
+    <input type="range" id="orbAxSlider" min="0" max="0.30" step="0.005" value="0">
+  </div>
+  <div class="ctrl">
+    <label>Orbit amplitude y <em id="orbAyVal">0.00</em></label>
+    <input type="range" id="orbAySlider" min="0" max="0.30" step="0.005" value="0">
+  </div>
+  <div class="ctrl">
+    <label>Orbit frequency <em id="orbWVal">0.40</em></label>
+    <input type="range" id="orbWSlider" min="0" max="2" step="0.02" value="0.4">
+  </div>
+  <div class="ctrl">
+    <label>Orbit phase Δφ/2π <em id="orbPhiVal">0.25</em></label>
+    <input type="range" id="orbPhiSlider" min="0" max="1" step="0.01" value="0.25">
+  </div>
+  <div class="ctrl" style="justify-content:flex-end">
+    <label>&nbsp;</label>
+    <button id="syncOrbitBtn" title="set ω_obj so each finger contacts the ball once per orbit (uses wave 1's params)" style="background:rgba(158,197,232,0.10);border:1px solid rgba(158,197,232,0.4);color:#9ec5e8;font-family:inherit;font-size:10px;padding:4px 8px;border-radius:5px;cursor:pointer">sync ω<sub>obj</sub> to orbit</button>
+  </div>
+
+  <div style="grid-column:1/-1;margin-bottom:-4px;margin-top:6px;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px">
+    <span style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--teal);font-weight:400">③ Hand & sensing</span>
+  </div>
+  <div class="ctrl">
+    <label>Palpation speed <em id="palpVal">0.50</em></label>
+    <input type="range" id="palpSlider" min="0.05" max="2" step="0.05" value="0.5">
+  </div>
+
+  <div style="grid-column:1/-1;margin-bottom:-4px;margin-top:6px;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px">
+    <span style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--amber);font-weight:400">④ Object properties — what is being manipulated</span>
+  </div>
+  <div class="ctrl">
+    <label>Base radius <em id="ballRVal">0.28</em></label>
+    <input type="range" id="ballRSlider" min="0.10" max="0.44" step="0.01" value="0.28">
+  </div>
+  <div class="ctrl">
+    <label>Object bumpiness ε <em id="bumpEVal">0.00</em></label>
+    <input type="range" id="bumpESlider" min="0" max="0.5" step="0.01" value="0">
+  </div>
+  <div class="ctrl">
+    <label>Bump lobes m <em id="bumpMVal">3</em></label>
+    <input type="range" id="bumpMSlider" min="1" max="8" step="1" value="3">
+  </div>
+  <div class="ctrl">
+    <label>Inner radius (hole) <em id="innerRVal">0.00</em></label>
+    <input type="range" id="innerRSlider" min="0" max="0.25" step="0.005" value="0">
+  </div>
+
+  <div style="grid-column:1/-1;margin-bottom:-4px;margin-top:6px;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px">
+    <span style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:#e07a7a;font-weight:400">⑤ Anchor rings — where fingers physically live</span>
+    <span style="font-size:9px;color:var(--muted);font-style:italic;margin-left:8px">shift-click a finger above to cycle its wave assignment</span>
+  </div>
+  <div class="ctrl">
+    <label>Inner anchor radius <em id="ringRInnerVal">0.10</em></label>
+    <input type="range" id="ringRInnerSlider" min="0.02" max="0.22" step="0.005" value="0.10">
+  </div>
+  <div class="ctrl">
+    <label title="max distance from anchor to contactable point; smaller = restricted workspace">Finger reach <em id="reachVal">1.500</em></label>
+    <input type="range" id="reachSlider" min="0.05" max="1.5" step="0.005" value="1.5">
+  </div>
+
+  <div style="grid-column:1/-1;margin-bottom:-4px;margin-top:6px;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px">
+    <span style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:400">⑥ Visualisation</span>
+  </div>
+  <div class="ctrl">
+    <label>Ghost paths</label>
+    <div class="seg"><button id="btnGhostOn" class="on">Show</button><button id="btnGhostOff">Hide</button></div>
+  </div>
+  <div class="ctrl">
+    <label>Object</label>
+    <div class="seg"><button id="btnBallOn" class="on">Show</button><button id="btnBallOff">Hide</button></div>
+  </div>
+  <div class="ctrl">
+    <label>Object pattern</label>
+    <div class="seg"><button id="btnPatQ" class="on">Quad</button><button id="btnPatS">Stripe</button><button id="btnPatD">Dots</button></div>
+  </div>
+  <div class="ctrl">
+    <label>Workspaces</label>
+    <div class="seg"><button id="btnWsOn">Show</button><button id="btnWsOff" class="on">Hide</button></div>
+  </div>
+  <div class="ctrl">
+    <label>Conveying arrow</label>
+    <div class="seg"><button id="btnArrowOn" class="on">Show</button><button id="btnArrowOff">Hide</button></div>
+  </div>
+</div>
+
+<div id="revealWrap">
+  <h3>Object shape &amp; sensing mode</h3>
+  <div id="revealRow">
+    <div class="seg">
+      <button class="rbtn" id="btnShapeCircle">Circle</button>
+      <button class="rbtn on" id="btnShapeBump">Bumps</button>
+      <button class="rbtn" id="btnShapeEllipse">Ellipse</button>
+      <button class="rbtn" id="btnShapeTri">Triangle</button>
+      <button class="rbtn" id="btnShapeSquare">Square</button>
+      <button class="rbtn" id="btnShapeStar">Star</button>
+      <button class="rbtn" id="btnShapePencil">Pencil</button>
+      <button class="rbtn" id="btnShapeTorus">Torus</button>
+      <button class="rbtn" id="btnShapeDraw">Draw</button>
+    </div>
+    <div class="seg" style="margin-left:6px">
+      <button class="rbtn on" id="btnRevealOff">Known</button>
+      <button class="rbtn" id="btnRevealOn">Reveal</button>
+    </div>
+    <span id="revealCoverage"></span>
+    <button id="resetReveal">reset</button>
+  </div>
+</div>
+
+<div id="drawWrap">
+  <h3>Draw shape — sketch a closed outline (centre = finger ring centre)</h3>
+  <div id="drawRow">
+    <canvas id="drawCanvas" width="240" height="240"></canvas>
+    <div id="drawInfo">
+      Draw a closed shape (multiple strokes OK). Centre = finger ring centre.<br>
+      <button id="drawClear">Clear</button>
+      <button id="drawUse">Use shape</button>
+      <label style="font-size:9px;padding:3px 8px;border:1px solid rgba(78,205,196,.3);border-radius:5px;background:rgba(78,205,196,.08);color:var(--teal);cursor:pointer;font-family:monospace;display:inline-block">
+        Upload SVG <input type="file" id="svgUpload" accept=".svg" style="display:none">
+      </label>
+      <br>
+      <span id="drawStatus">Draw a closed shape...</span>
+    </div>
+  </div>
+</div>
+
+<div id="fingerToggleWrap">
+  <h3>Active fingers — click to toggle</h3>
+  <div id="fingerRow"></div>
+</div>
+
+<div id="gaitWrap">
+  <h3>Gait diagram — time → | fingers ↑</h3>
+  <canvas id="gaitCanvas" height="108"></canvas>
+</div>
+
+<div id="eqn">
+  <span style="color:var(--teal)">Per primitive: W(ξ, t) = sin(k·ξ − ω·t − φ), &nbsp;ω = 2π·c·k / normUnit</span>
+  &nbsp;|&nbsp; <span style="color:#9ec5e8">Body motion = SE(2) sum of all flows. Contact = OR over primitives.</span>
+  <br>Layer 0: manifold (bodyCircle | worldLine | orbitCircle). Layer 1: wave {k, c, φ, dc, amp}. Layer 2: flows {bodyRotation, translation, externalRotation}. Per-knob locks make rolling a parameter constraint.
+  <br><span id="eqnVals" style="color:#7a7470"></span>
+</div>
+
+<div id="testPanel" style="width:100%;max-width:960px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:11px;color:var(--text)">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <button id="testToggle" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:10px;padding:3px 9px;border-radius:5px;cursor:pointer">▸ tests</button>
+    <button id="testRunAll" style="background:rgba(78,205,196,0.10);border:1px solid rgba(78,205,196,0.35);color:var(--teal);font-family:inherit;font-size:10px;padding:3px 10px;border-radius:5px;cursor:pointer;display:none">run all</button>
+    <span id="testSummary" style="font-size:10px;color:var(--muted);font-style:italic"></span>
+  </div>
+  <div id="testBody" style="display:none;margin-top:8px">
+    <div id="testResults" style="font-family:monospace;font-size:10.5px;line-height:1.55;color:var(--text);white-space:pre-wrap;max-height:340px;overflow-y:auto;background:#0f0f0e;border:1px solid var(--border);border-radius:6px;padding:8px 10px"></div>
+    <div style="margin-top:6px;font-size:9.5px;color:var(--muted);font-style:italic">Tests are non-blocking — failures are reported but never throw. Edit baselines in TESTS[] to set new expected values.</div>
+  </div>
+</div>
+
+<script>
+// ─── Visible error catcher (so a JS error doesn't silently kill the page) ───
+window.addEventListener('error', e => {
+  let box = document.getElementById('__errBox');
+  if(!box){
+    box = document.createElement('div');
+    box.id = '__errBox';
+    box.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;max-height:40vh;overflow:auto;background:#3a1010;color:#ffd0d0;border:1px solid #c0392b;border-radius:6px;padding:8px 12px;font-family:monospace;font-size:11px;z-index:9999;white-space:pre-wrap';
+    document.body.appendChild(box);
+  }
+  box.textContent += `[${e.filename||'?'}:${e.lineno}:${e.colno}] ${e.message}\n${e.error && e.error.stack ? e.error.stack : ''}\n\n`;
+});
+window.addEventListener('unhandledrejection', e => {
+  let box = document.getElementById('__errBox');
+  if(!box){
+    box = document.createElement('div');
+    box.id = '__errBox';
+    box.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;max-height:40vh;overflow:auto;background:#3a1010;color:#ffd0d0;border:1px solid #c0392b;border-radius:6px;padding:8px 12px;font-family:monospace;font-size:11px;z-index:9999;white-space:pre-wrap';
+    document.body.appendChild(box);
+  }
+  box.textContent += `[unhandled rejection] ${e.reason && e.reason.message ? e.reason.message : e.reason}\n${e.reason && e.reason.stack ? e.reason.stack : ''}\n\n`;
+});
+
+// ─── State ────────────────────────────────────────────────────────────────────
+// v9 model: waves are first-class composite objects, each with its OWN
+// omegaObj contribution. Body ω_body = Σ over waves of w.omegaObj (atomic
+// decomposition). Body v_cm is similarly a sum, with each wave's contribution
+// from its kind (rotation / translateX / translateY / translateOrbit /
+// orbitRoll). Each wave's ω_wave is derived from its kind and parameters.
+//
+// orbitRoll: ball orbits external to the finger ring at ω_orbit around
+// (centreX, centreY). The wave's contact trough is locked to the ball's
+// instantaneous angular position, so fingers near the ball extend (touch
+// it) and fingers far away retract. Leading-tangent fingers enter contact
+// ("front"), trailing-tangent fingers exit ("back") — front/back set by
+// direction of orbital travel, not by any feature of the ball.
+//
+// Translation atoms are SEPARATED into translateX and translateY (one per
+// world axis). Two synchronised translateX+translateY waves with matching
+// period compose into resolved-vector motion; firing order then traces the
+// resolved direction naturally.
+// Per-wave `dir` derived from `-sign(sweep)·sign(omegaObj_w)`.
+//
+// Wave fields:
+//   k, dc, sweep, amplitude  — signal shape
+//   phaseOffset (radians)    — phase offset relative to a "canonical" wave at α=0
+//   surface ('outer'|'inner')— which body surface this wave acts on
+//   wavePhase                — accumulated ∫ dir·k·ω_wave dt for this wave
+//
+// Wave membership lives on the finger side: S.fingerWave[i] = wave index.
+// Future-extensibility hooks:
+//   - multiple objects → wave gets an objectIndex field
+//   - finger in multiple waves → S.fingerWave[i] becomes an array
+function makeWave(overrides){
+  return Object.assign({
+    // 'kind' picks which atomic motion this wave contributes to body motion,
+    // and how slots are sorted (so fingers fire in the appropriate physical
+    // sequence for the wave's purpose):
+    //   'rotation'       — contributes ω_obj to body rotation; slots sorted
+    //                      by θ_obj (finger angle around body centroid).
+    //   'translateX'     — contributes (conveyV, 0) to body translation;
+    //                      ξ = anchor.x − centroid.x (peristaltic along x).
+    //   'translateY'     — contributes (0, conveyV) to body translation;
+    //                      ξ = anchor.y − centroid.y (peristaltic along y).
+    //   'translateOrbit' — contributes orbital tangent around (centreX,
+    //                      centreY) at orbitOmega; slots sorted by angle
+    //                      around that centre.
+    //   'orbitRoll'      — same body motion as translateOrbit, but the wave
+    //                      itself is locked to the ball's angular position:
+    //                      contact trough centred on the ball, no slot
+    //                      structure.  ω_wave = |orbitOmega|, dir = sign(...).
+    // omegaObj's role depends on kind:
+    //   rotation: body-rotation contribution AND wave timing (drives ω_wave).
+    //   other:   wave timing only (no body rotation contribution).
+    kind: 'rotation',
+    k: 1, dc: 0.5, sweep: 0.3, amplitude: 0.10,
+    phaseOffset: 0,
+    surface: 'outer',
+    wavePhase: 0,
+    // CPG-style lock to a master wave (currently always wave 0). When true:
+    //   - k is slaved to master.k
+    //   - β is preserved across master changes: sweep_w = β·master.sweep,
+    //                                           dc_w    = β·master.dc
+    //   - dirFor() comes out the same for both, so peaks/troughs stay
+    //     temporally in sync (cArc/|sweep| ratio is preserved).
+    lockedToMaster: false,
+    masterIdx: 0,
+    beta: 1,
+    // Recruited count: number of "slots" the wave maintains around its
+    // surface. Each slot has a stable α_eff = (slot/nWave)·2π and an occupant
+    // finger; slot occupants are reshuffled by updateWaveSlots() only when an
+    // occupant goes out of reach. This eliminates the α_eff snap that happened
+    // when m_eff (reachable count) varied frame-to-frame.
+    nWave: 8,
+    _slots: [],
+    // Rotation contribution to body angular velocity (turns/s, signed).
+    // ω_body = Σ over waves w of w.omegaObj. Each wave's ω_wave timing is
+    // derived from its own omegaObj using the existing invariance formula.
+    omegaObj: 0,
+    // Conveying parameters (used depending on wave.kind):
+    //   translateX/Y:   signed scalar conveyV along the wave's fixed axis.
+    //                   Instantaneous speed = conveyV + vAmp·sin(2π·vFreq·t + vPhase),
+    //                   so vAmp=0 ⇒ constant speed (back-compat), vAmp>0 ⇒
+    //                   sinusoidal oscillation, vPhase=π/2 ⇒ cosinusoidal.
+    //   translateOrbit: contributes orbitOmega × perp(centroid − centre).
+    conveyV: 0,
+    vAmp: 0,
+    vFreq: 0,
+    vPhase: 0,
+    centreX: 0,
+    centreY: 0,
+    orbitOmega: 0,
+    // Wavelength in fraction of SIZE (used by translation kind). For
+    // peristaltic-matched translation, ω_wave = 2π·k·|speed|/λ — the wave
+    // moves through body-frame ξ at the same rate as the body moves through
+    // world, so the wave's pattern stays locked to the body's surface.
+    // Default 1.0 is just larger than the default body extent (2·ringROuter
+    // = 0.84), so the whole body fits inside a single wavelength and fingers
+    // fire in monotonic projection order. Smaller λ packs multiple cycles
+    // into the body and breaks that monotonicity by design.
+    wavelength: 1.0,
+  }, overrides || {});
+}
+
+const S = {
+  // ─── Hand / anchor geometry ──────────────────────────────────────────────
+  n: 8,
+  ringROuter: 0.42,
+  ringRInner: 0.10,
+  // Per-finger max reach: distance from anchor to contact point, in fractions
+  // of SIZE. Defaults generous (essentially unconstrained for typical configs);
+  // turn this down to constrain workspaces — e.g. for the "planet" demo where
+  // only fingers near the orbiting ball can grip.
+  fingerReach: 1.5,
+  showWorkspace: false,
+  // ─── Manipulation: list of primitives (v11) ──────────────────────────────
+  // Each primitive = (manifold + make/break wave) + flows + sync locks.
+  // Body motion = SE(2) sum of all flows. Contact at finger i = OR over
+  // primitives. Assigned just below the literal (needs makePrimitive).
+  primitives: [],
+  activePrimitive: 0,
+  // Per-(primitive, finger) slot-presence ∈ [0,1], smoothed each frame.
+  fingerSlotPres2D: [],
+  // ─── Object / surface geometry ───────────────────────────────────────────
+  ballRFrac: 0.28,
+  bumpE: 0.0,
+  bumpM: 3,
+  innerR: 0.0,  // inner-surface (hole) radius fraction; >0 makes a donut
+  shape: 'bumps',
+  customShape: null, customShapeInner: null,
+  // ─── Body centroid (integrated state under conveyor model) ───────────────
+  // Position is now state, not a function of time. Each frame: centroid +=
+  // dt · Σ(wave's instantaneous v_xy) · SIZE. Orbit wave still drawn as a
+  // "wish" reference but no longer drives the body.
+  centroidX: 0, centroidY: 0,
+  // ─── Sensing / display ───────────────────────────────────────────────────
+  showGhost: true, showBall: true, ballPattern: 'quadrant',
+  showConveyArrow: true,
+  playing: true, time: 0, ballAngle: 0,
+  watchFinger: 0,
+  nodeMode: 'all',
+  fingerActive: Array(24).fill(true),
+  revealMode: false,
+  palpationSpeed: 0.5,
+  // ─── Wave frame mode ─────────────────────────────────────────────────────
+  // 'ring'   : v6 — wave indexed by anchor θ_obj; fingers sweep tangentially.
+  //            Useful as a didactic comparison but doesn't extend cleanly to
+  //            translating bodies.
+  // 'object' : v7+ — wave indexed by body-frame α; fingers grab material
+  //            points. Default mode under the conveyor framework.
+  waveFrame: 'object',
+  grabbedAlpha: Array(24).fill(NaN),
+  releasedAlpha: Array(24).fill(NaN),
+  // ─── Orbit wave (Cartesian translation of object centroid) ───────────────
+  orbX0: 0, orbY0: 0,
+  orbAx: 0, orbAy: 0,
+  orbOmega: 0.4, orbPhi: 0.25,
+  zoom: 1.0,
+};
+
+// Default manipulation: one translation-y primitive, matching v9's default
+// "body drifts downward at 5%/s" startup behaviour.
+S.primitives = [
+  makePrimitive({
+    name: 'translate y',
+    manifoldSpec: { kind: 'worldLine', dirX: 0, dirY: 1 },
+    flows: [{ kind: 'translation', vx: 0, vy: 0.05 }],
+  }),
+];
+
+function ensureSlotPres(){
+  while(S.fingerSlotPres2D.length < S.primitives.length){
+    S.fingerSlotPres2D.push(new Array(24).fill(0));
+  }
+  while(S.fingerSlotPres2D.length > S.primitives.length){
+    S.fingerSlotPres2D.pop();
+  }
+}
+ensureSlotPres();
+
+// ─── Reveal system ────────────────────────────────────────────────────────────
+// Two parallel arrays per bin:
+//   revealTrueR[b]   — the latched true-surface measurement (only set after contact)
+//   revealRadii[b]   — the current displayed/used estimate (descends toward true at palpation speed)
+//   revealMap[b]     — coverage 0..1 (how much we've sampled this bin)
+// Initial estimate is a "naive" circle (radius REVEAL_DEFAULT_R). When a finger contacts
+// the true surface, revealTrueR is set; revealRadii then descends at palpation speed.
+// This gives a visible "feeling-down" animation rather than an instant drop.
+const REVEAL_BINS = 1440;
+const revealMap = new Float32Array(REVEAL_BINS);
+const revealRadii = new Float32Array(REVEAL_BINS);   // current estimate (used by fingers)
+const revealTrueR = new Float32Array(REVEAL_BINS);   // latched measurement (descent target)
+const revealHasMeas = new Uint8Array(REVEAL_BINS);   // 1 if revealTrueR is valid
+const PAINT_HW = 12;   // scale with REVEAL_BINS (was 6 at 720 bins)
+const PAINT_RATE = 4.0;
+
+const REVEAL_DEFAULT_R = () => 0.30 * SIZE;
+
+function resetReveal(){
+  const dflt = REVEAL_DEFAULT_R();
+  revealMap.fill(0);
+  revealTrueR.fill(0);
+  revealHasMeas.fill(0);
+  // Initialise estimate to the naive outer circle so fingers visibly start there
+  revealRadii.fill(dflt);
+}
+
+// Record a true-surface measurement at the contact angle. Updates the
+// measurement target and bumps coverage. The displayed estimate (revealRadii)
+// descends toward this target via palpateStep().
+//
+// `seedR` is the radius the FINGER is currently commanded to at this contact —
+// used to initialise the displayed estimate at a freshly-touched bin so that
+// the estimate is continuous with what the user can see. Without this, a bin
+// transitioning from unknown to known would inherit revealRadii's default
+// initialisation (naive outer circle) for one frame, causing the finger to
+// "jump out" to the default before descending. Seeding with seedR makes the
+// transition visually seamless.
+function paintContact(objFrameAngle, trueSurfR, seedR, dt){
+  const norm = ((objFrameAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  const bin = Math.round(norm/(2*Math.PI)*REVEAL_BINS) % REVEAL_BINS;
+  for(let d=-PAINT_HW;d<=PAINT_HW;d++){
+    const b = ((bin+d)%REVEAL_BINS+REVEAL_BINS)%REVEAL_BINS;
+    const w = Math.exp(-0.5*(d*d)/(PAINT_HW*0.5)**2);
+    const old = revealMap[b];
+    const nw = Math.min(1, old + PAINT_RATE*dt*w);
+    if(nw > 0){
+      if(revealHasMeas[b]){
+        // Already have a measurement — average it in
+        const added = nw - old;
+        revealTrueR[b] = (revealTrueR[b]*old + trueSurfR*added)/nw;
+      } else {
+        revealTrueR[b] = trueSurfR;
+        revealHasMeas[b] = 1;
+        // Seed the displayed estimate at this fresh bin with the finger's
+        // current commanded radius — keeps the visible estimate continuous
+        // as the contact arc sweeps into new territory.
+        if(seedR != null) revealRadii[b] = seedR;
+      }
+    }
+    revealMap[b] = nw;
+  }
+}
+
+// Per-frame palpation step: move revealRadii DOWNWARD toward revealTrueR at
+// palpation speed, for every bin where we have a measurement. Descent-only —
+// the "rise" case (true surface bulges out beyond current estimate) is handled
+// instantaneously by snapEstimateUpTo(), since a real finger reaching toward
+// a too-close prediction would physically collide with the bulge.
+function palpateStep(dt){
+  const speed = S.palpationSpeed * SIZE;
+  const step = speed * dt;
+  for(let b=0;b<REVEAL_BINS;b++){
+    if(!revealHasMeas[b]) continue;
+    const target = revealTrueR[b];
+    const cur = revealRadii[b];
+    if(cur > target){
+      revealRadii[b] = Math.max(target, cur - step);
+    }
+    // No upward migration — handled by snapEstimateUpTo on collision.
+  }
+}
+
+// Instantaneous collision response: when a finger feels the surface at a larger
+// radius than expected, snap the displayed estimate UP to the measurement at
+// that bin (and a Gaussian-weighted neighbourhood, matching the paint kernel).
+// Models the physical fact that the finger has hit the bulge and cannot pass.
+function snapEstimateUpTo(objFrameAngle, trueR){
+  const norm = ((objFrameAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  const bin = Math.round(norm/(2*Math.PI)*REVEAL_BINS) % REVEAL_BINS;
+  for(let d=-PAINT_HW;d<=PAINT_HW;d++){
+    const b = ((bin+d)%REVEAL_BINS+REVEAL_BINS)%REVEAL_BINS;
+    const w = Math.exp(-0.5*(d*d)/(PAINT_HW*0.5)**2);
+    // Pull the estimate up toward trueR, weighted by Gaussian kernel.
+    // Strength 1.0 at centre (full snap to true), tapering toward edges.
+    if(revealRadii[b] < trueR){
+      revealRadii[b] = revealRadii[b]*(1-w) + trueR*w;
+    }
+  }
+}
+
+// Light smoothing pass on the displayed estimate. Averages each measured-bin
+// with its immediate neighbours; unmeasured bins are skipped so the smoothing
+// doesn't leak the naive default into known regions or vice versa.
+// Very light weight so genuine surface features aren't rounded out — just
+// reduces bin-to-bin jitter from the discrete paint kernel.
+const _smoothBuf = new Float32Array(REVEAL_BINS);
+function smoothEstimate(){
+  // Weighted 3-tap: 0.05 / 0.90 / 0.05 (mild)
+  for(let b=0;b<REVEAL_BINS;b++){
+    if(!revealHasMeas[b]){ _smoothBuf[b] = revealRadii[b]; continue; }
+    const bL = (b - 1 + REVEAL_BINS) % REVEAL_BINS;
+    const bR = (b + 1) % REVEAL_BINS;
+    const cL = revealHasMeas[bL] ? revealRadii[bL] : revealRadii[b];
+    const cR = revealHasMeas[bR] ? revealRadii[bR] : revealRadii[b];
+    _smoothBuf[b] = 0.05*cL + 0.90*revealRadii[b] + 0.05*cR;
+  }
+  for(let b=0;b<REVEAL_BINS;b++) revealRadii[b] = _smoothBuf[b];
+}
+
+function revealAlpha(objFrameAngle){
+  const norm = ((objFrameAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  const binF = norm/(2*Math.PI)*REVEAL_BINS;
+  const b0 = Math.floor(binF)%REVEAL_BINS;
+  const b1 = (b0+1)%REVEAL_BINS;
+  const f = binF - Math.floor(binF);
+  return revealMap[b0]*(1-f) + revealMap[b1]*f;
+}
+
+// ─── Smooth estimated surface ─────────────────────────────────────────────────
+// Initial assumption: circle of radius 0.3*SIZE (fixed, not based on base radius).
+// Known points anchor the curve; unknown regions interpolate smoothly.
+function estimatedSurface(objFrameAngle){
+  const R = REVEAL_DEFAULT_R(); // circular assumption for unknown regions
+  const norm = ((objFrameAngle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  const binF = norm/(2*Math.PI)*REVEAL_BINS;
+  const b0 = Math.floor(binF)%REVEAL_BINS;
+  const b1 = (b0+1)%REVEAL_BINS;
+  const f = binF - Math.floor(binF);
+
+  // For each of the two bracketing bins, compute a smooth estimate
+  const est = (b) => {
+    if(revealMap[b] > 0.3) return revealRadii[b]; // known: use measurement
+    // Unknown: blend toward circular by looking for nearest known bins
+    // and interpolating with a smooth falloff
+    let leftR = R, rightR = R, leftD = REVEAL_BINS, rightD = REVEAL_BINS;
+    const searchRange = Math.min(REVEAL_BINS/2, 120); // ~60° each side
+    for(let d=1;d<=searchRange;d++){
+      const bl = ((b-d)%REVEAL_BINS+REVEAL_BINS)%REVEAL_BINS;
+      if(revealMap[bl]>0.3 && leftD > d){ leftD=d; leftR=revealRadii[bl]; break; }
+    }
+    for(let d=1;d<=searchRange;d++){
+      const br = ((b+d)%REVEAL_BINS+REVEAL_BINS)%REVEAL_BINS;
+      if(revealMap[br]>0.3 && rightD > d){ rightD=d; rightR=revealRadii[br]; break; }
+    }
+    if(leftD >= searchRange && rightD >= searchRange) return R; // no nearby data
+    // Smooth cosine blend from known data toward circular default
+    if(leftD >= searchRange){
+      const fade = 0.5*(1+Math.cos(Math.PI*Math.min(rightD/searchRange,1)));
+      return R*(1-fade) + rightR*fade;
+    }
+    if(rightD >= searchRange){
+      const fade = 0.5*(1+Math.cos(Math.PI*Math.min(leftD/searchRange,1)));
+      return R*(1-fade) + leftR*fade;
+    }
+    // Both sides have data: smooth interpolation
+    const totalD = leftD + rightD;
+    const wLeft = rightD / totalD;
+    const wRight = leftD / totalD;
+    const interpR = leftR * wLeft + rightR * wRight;
+    // Fade toward circular with distance from nearest known point
+    const nearestD = Math.min(leftD, rightD);
+    const fade = 0.5*(1+Math.cos(Math.PI*Math.min(nearestD/searchRange,1)));
+    return R*(1-fade) + interpR*fade;
+  };
+
+  return est(b0)*(1-f) + est(b1)*f;
+}
+
+function revealCoverage(){
+  let c=0; for(let i=0;i<REVEAL_BINS;i++) if(revealMap[i]>0.3) c++;
+  return c/REVEAL_BINS;
+}
+
+// ─── Canvas refs ──────────────────────────────────────────────────────────────
+const ringCanvas=document.getElementById('ringCanvas');
+const gaitCanvas=document.getElementById('gaitCanvas');
+const wcRadial=document.getElementById('wcRadial');
+const wcSurface=document.getElementById('wcSurface');
+const wcSum=document.getElementById('wcSum');
+const wcSaw=document.getElementById('wcSaw');
+const rc=ringCanvas.getContext('2d');
+const gc=gaitCanvas.getContext('2d');
+
+const SIZE=Math.min(window.innerWidth-200,600);
+ringCanvas.width=ringCanvas.height=SIZE;
+
+// ─── Geometry helpers ────────────────────────────────────────────────────────
+const ballR = ()=>S.ballRFrac*SIZE;
+const waveAmp = (p)=>p.amp*SIZE;
+
+// Sweep: body-frame ξ-arc the trough covers during one make event. Derived
+// from {dc, k}: dc·2π/k radians on the manifold, signed by direction of c.
+function sweepMaxFor(p){
+  return Math.sign(p.c) * (2*Math.PI * p.dc) / Math.max(1, p.k);
+}
+
+// ─── Orbit wave (Cartesian translation reference panel) ─────────────────────
+// "Wish" panel — independent of S.primitives, kept for visual comparison.
+function orbitOffset(t){
+  const X0 = S.orbX0 * SIZE, Y0 = S.orbY0 * SIZE;
+  const Ax = S.orbAx * SIZE, Ay = S.orbAy * SIZE;
+  const w  = S.orbOmega;
+  const phi = S.orbPhi * 2 * Math.PI;
+  return {
+    dx: X0 + Ax * Math.sin(w * t),
+    dy: Y0 + Ay * Math.sin(w * t + phi),
+    vx: Ax * w * Math.cos(w * t),
+    vy: Ay * w * Math.cos(w * t + phi)
+  };
+}
+
+// Body centroid in world (canvas) frame. Integrated state.
+function objectCentre(t, cx, cy, z){
+  return { x: cx + S.centroidX * z, y: cy + S.centroidY * z };
+}
+
+// ─── Per-knob lock resolvers (v11) ───────────────────────────────────────────
+// Effective rate for a flow, resolving any sync lock against its parent
+// primitive's other flows. Uniform return shape: {omega, vx, vy, cx, cy}.
+function flowRate(prim, flow, t){
+  const tt = (t === undefined ? S.time : t);
+  const out = { omega: 0, vx: 0, vy: 0, cx: 0, cy: 0 };
+  if(flow.kind === 'bodyRotation'){
+    if(flow.lock === 'rolling-with-orbit'){
+      const ext = prim.flows.find(f => f.kind === 'externalRotation');
+      const rb = S.ballRFrac;
+      if(ext && rb > 1e-6){
+        const dx = S.centroidX/SIZE - ext.cx;
+        const dy = S.centroidY/SIZE - ext.cy;
+        const R = Math.hypot(dx, dy);
+        out.omega = -flowRate(prim, ext, tt).omega * R / rb;
+      }
+    } else {
+      out.omega = flow.omega;
+    }
+  } else if(flow.kind === 'translation'){
+    out.vx = flow.vx + (flow.Ax || 0) * (flow.Omx || 0) * Math.cos((flow.Omx || 0) * tt + (flow.phx || 0));
+    out.vy = flow.vy + (flow.Ay || 0) * (flow.Omy || 0) * Math.cos((flow.Omy || 0) * tt + (flow.phy || 0));
+  } else if(flow.kind === 'externalRotation'){
+    out.omega = flow.omega;
+    out.cx = flow.cx;
+    out.cy = flow.cy;
+  }
+  return out;
+}
+
+// Effective phase speed c for primitive p, resolving cLock.
+function waveC(p){
+  if(p.cLock === 'world-frame'){
+    // Trough fixed in world: c = -ω_body·r_body. Uses this primitive's
+    // bodyRotation flow (if any).
+    const rot = p.flows.find(f => f.kind === 'bodyRotation');
+    if(rot) return -flowRate(p, rot).omega * S.ballRFrac;
+  } else if(p.cLock === 'tracks-orbit'){
+    // Trough tracks orbit contact: c = Ω·(r_body + R). Uses this primitive's
+    // externalRotation flow (or the first one across primitives if not local).
+    let owner = p;
+    let ext = p.flows.find(f => f.kind === 'externalRotation');
+    if(!ext){
+      for(const q of S.primitives){
+        ext = q.flows.find(f => f.kind === 'externalRotation');
+        if(ext){ owner = q; break; }
+      }
+    }
+    if(ext){
+      const dx = S.centroidX/SIZE - ext.cx;
+      const dy = S.centroidY/SIZE - ext.cy;
+      const R = Math.hypot(dx, dy);
+      return flowRate(owner, ext).omega * (S.ballRFrac + R);
+    }
+  }
+  return p.c;
+}
+
+// ─── Motion (sum of flows across all primitives) ────────────────────────────
+function motionVel(t){
+  let vx = 0, vy = 0;
+  for(const p of S.primitives){
+    for(const f of p.flows){
+      const r = flowRate(p, f, t);
+      if(f.kind === 'translation'){
+        vx += r.vx; vy += r.vy;
+      } else if(f.kind === 'externalRotation'){
+        const dx = S.centroidX/SIZE - r.cx;
+        const dy = S.centroidY/SIZE - r.cy;
+        vx += -r.omega * dy;
+        vy +=  r.omega * dx;
+      }
+    }
+  }
+  return { vx, vy };
+}
+function bodyConveyVel(t){ return motionVel(t); }  // legacy alias
+
+function bodyOmega(){
+  let sum = 0;
+  for(const p of S.primitives){
+    for(const f of p.flows){
+      if(f.kind === 'bodyRotation') sum += flowRate(p, f).omega;
+    }
+  }
+  return sum;
+}
+
+// Finger anchor in world frame. θ_ring=0 = top, increasing CW. Anchor ring =
+// inner if ANY primitive targets the inner surface; outer otherwise. A finger
+// is one physical object on one ring.
+function fingerAnchor(i, cx, cy, z){
+  const theta_ring = (i/S.n)*2*Math.PI;
+  const isInner = S.primitives && S.primitives.some(p => p.surface === 'inner');
+  const fr = isInner ? S.ringRInner : S.ringROuter;
+  const Rr = fr * SIZE * z;
+  return {
+    x: cx + Rr * Math.sin(theta_ring),
+    y: cy - Rr * Math.cos(theta_ring),
+    theta_ring,
+    ring: isInner ? 1 : 0
+  };
+}
+
+// Given a finger's anchor and the object centroid (both in world frame),
+// compute the finger's angle and distance as seen from the object centroid.
+// θ_obj convention: θ=0 = top, increasing CW (same as ring frame).
+function fingerObjFrame(anchorX, anchorY, objX, objY){
+  const dx = anchorX - objX;
+  const dy = anchorY - objY;
+  // Convert (dx,dy) screen vector to (θ, r): θ=0 means dy<0 (anchor above object).
+  // dx = r*sin(θ), -dy = r*cos(θ)  →  θ = atan2(dx, -dy)
+  const r_anchor = Math.hypot(dx, dy);
+  const theta_obj = Math.atan2(dx, -dy);
+  return { theta_obj, r_anchor };
+}
+
+// ─── Manifold abstraction (v11) ─────────────────────────────────────────────
+// A manifold is the 1D space the make/break wave lives on. It exposes:
+//   kind:     'bodyCircle' | 'worldLine' | 'orbitCircle' (more later)
+//   isClosed: bool — closed → ξ wraps at 2π, k must be integer
+//                     open   → ξ ∈ ℝ, k may be real
+//   normUnit: getter or value — arc length (fractions of SIZE) corresponding
+//             to ξ = 2π. Used so ω = 2π·c·k / normUnit collapses to v9's
+//             c·k/r_body for the body-circle case.
+//   project(anchor): world-frame anchor → ξ_norm (radians).
+function makeManifold(spec){
+  spec = spec || { kind: 'bodyCircle' };
+  const kind = spec.kind || 'bodyCircle';
+  if(kind === 'worldLine'){
+    const dirX = spec.dirX !== undefined ? spec.dirX : 1;
+    const dirY = spec.dirY !== undefined ? spec.dirY : 0;
+    const dlen = Math.hypot(dirX, dirY) || 1;
+    const dx = dirX/dlen, dy = dirY/dlen;
+    return {
+      kind, isClosed: false,
+      normUnit: 1.0,
+      params: { dirX: dx, dirY: dy },
+      project: (anchor) => {
+        const obj = objectCentre(S.time, SIZE/2, SIZE/2, 1);
+        const proj = ((anchor.x - obj.x)*dx + (anchor.y - obj.y)*dy) / SIZE;
+        return 2 * Math.PI * proj;
+      },
+    };
+  }
+  if(kind === 'orbitCircle'){
+    const R = spec.R !== undefined ? spec.R : Math.max(0.05, S.ringROuter - 0.05);
+    const cx = spec.centreX !== undefined ? spec.centreX : 0;
+    const cy = spec.centreY !== undefined ? spec.centreY : 0;
+    return {
+      kind, isClosed: true,
+      get normUnit(){ return 2*Math.PI*R; },
+      params: { R, centreX: cx, centreY: cy },
+      project: (anchor) => {
+        const wcx = SIZE/2 + cx*SIZE, wcy = SIZE/2 + cy*SIZE;
+        let th = Math.atan2(anchor.x - wcx, -(anchor.y - wcy));
+        th = ((th % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+        return th;
+      },
+    };
+  }
+  // bodyCircle (default): wave on body's outer surface. ξ = body-frame angle.
+  return {
+    kind: 'bodyCircle', isClosed: true,
+    get normUnit(){ return 2 * Math.PI * S.ballRFrac; },
+    params: {},
+    project: (anchor) => {
+      const obj = objectCentre(S.time, SIZE/2, SIZE/2, 1);
+      const af = fingerObjFrame(anchor.x, anchor.y, obj.x, obj.y);
+      let xi = af.theta_obj - S.ballAngle;
+      xi = ((xi % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+      return xi;
+    },
+  };
+}
+
+// ─── Flow constructor (v11) ──────────────────────────────────────────────────
+// A flow is one SE(2) generator a primitive contributes to body motion. The
+// `lock` field optionally ties this flow's rate to another rate by formula
+// (resolved at runtime by flowRate()).
+function makeFlow(kind, overrides){
+  const base = { kind, lock: 'free' };
+  if(kind === 'bodyRotation'){
+    return Object.assign(base, { omega: 0 }, overrides || {});
+  }
+  if(kind === 'translation'){
+    return Object.assign(base, {
+      vx: 0, vy: 0,
+      // Optional sinusoidal modulation: effective v = base + A·Ω·cos(Ω·t + φ).
+      Ax: 0, Omx: 0, phx: 0,
+      Ay: 0, Omy: 0, phy: 0,
+    }, overrides || {});
+  }
+  if(kind === 'externalRotation'){
+    return Object.assign(base, { omega: 0, cx: 0, cy: 0 }, overrides || {});
+  }
+  return Object.assign(base, overrides || {});
+}
+
+// ─── Primitive constructor (v11) ─────────────────────────────────────────────
+// A primitive bundles a make/break wave on a manifold with one or more flows
+// that contribute to body motion. Each primitive has its own slot model.
+function makePrimitive(spec){
+  spec = spec || {};
+  const manifoldSpec = spec.manifoldSpec || { kind: 'bodyCircle' };
+  return {
+    name: spec.name || 'primitive',
+    manifoldSpec,
+    manifold: makeManifold(manifoldSpec),
+    surface: spec.surface || 'outer',
+    k:     spec.k     !== undefined ? spec.k     : 1,
+    c:     spec.c     !== undefined ? spec.c     : 0,
+    cLock: spec.cLock || 'free',
+    phase: spec.phase !== undefined ? spec.phase : 0,
+    amp:   spec.amp   !== undefined ? spec.amp   : 0.10,
+    dc:    spec.dc    !== undefined ? spec.dc    : 0.5,
+    nWave: spec.nWave !== undefined ? spec.nWave : 8,
+    wavePhase: 0,
+    _slots: [],
+    flows: (spec.flows || []).map(f => makeFlow(f.kind, f)),
+  };
+}
+
+function setPrimitiveManifold(p, manifoldSpec){
+  p.manifoldSpec = Object.assign({}, manifoldSpec);
+  p.manifold = makeManifold(p.manifoldSpec);
+  p._slots = [];
+}
+
+// ─── True shape (object frame) ───────────────────────────────────────────────
+function shapeR(theta){
+  const R = ballR();
+  switch(S.shape){
+    case 'circle': return R;
+    case 'torus': return R;  // Outer surface of torus is just a circle of base radius
+    case 'bumps': return R*(1+S.bumpE*Math.sin(S.bumpM*theta));
+    case 'ellipse': {
+      const a=R,b=R*0.65;
+      const c=Math.cos(theta),s=Math.sin(theta);
+      return (a*b)/Math.sqrt(b*b*c*c+a*a*s*s);
+    }
+    case 'triangle': return R*(0.82+0.22*Math.cos(3*theta));
+    case 'square': {
+      const c=Math.abs(Math.cos(theta)),s=Math.abs(Math.sin(theta));
+      return R*0.88/Math.pow(Math.pow(c,2.5)+Math.pow(s,2.5),1/2.5);
+    }
+    case 'star': return R*(0.7+0.32*Math.cos(5*theta));
+    case 'pencil': {
+      // Long thin rectangle: half-length L (along body y), half-width W (along x).
+      // r(θ) = min(W/|sin θ|, L/|cos θ|) — clamped by sides and ends.
+      const L = R * 2.5, W = R * 0.5;
+      const sx = Math.abs(Math.sin(theta));
+      const sy = Math.abs(Math.cos(theta));
+      if(sx < 1e-9) return L;
+      if(sy < 1e-9) return W;
+      return Math.min(W / sx, L / sy);
+    }
+    case 'draw': {
+      if(!S.customShape) return R;
+      const norm=((theta%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+      const binF=norm/(2*Math.PI)*720;
+      const b0=Math.floor(binF)%720, b1=(b0+1)%720;
+      const f=binF-Math.floor(binF);
+      return (S.customShape[b0]*(1-f)+S.customShape[b1]*f)*SIZE;
+    }
+    default: return R;
+  }
+}
+function objR(theta){ return shapeR(theta); }
+
+// Inner-surface radius (the wall of the hole, if any).
+// Returns 0 for solid shapes; > 0 for torus/annulus objects.
+// The inner surface is in body-frame, just like objR.
+function objRInner(theta){
+  if(S.shape === 'torus'){
+    return S.innerR * SIZE;
+  }
+  // For other shapes, optionally have a constant hole if S.innerR > 0
+  if(S.innerR > 0){
+    return S.innerR * SIZE;
+  }
+  return 0;
+}
+
+// Has-hole predicate
+function hasHole(){
+  return objRInner(0) > 1; // 1px threshold
+}
+
+// Surface the finger plans against (true or estimated), in OBJECT FRAME.
+// θ_obj_relative = θ_obj − ballAngle (the angle relative to the object's body).
+function surfaceR(objFrameAngle){
+  return S.revealMode ? estimatedSurface(objFrameAngle) : objR(objFrameAngle);
+}
+
+// Inner-surface that the finger plans against. For now, reveal mode does not
+// extend to the inner surface — fingers plan against the true inner surface.
+// (Could be extended later to a separate reveal map for the hole.)
+function surfaceRInner(objFrameAngle){
+  return objRInner(objFrameAngle);
+}
+
+// ─── Wave math (v11 — manifold-aware, no kind branches) ─────────────────────
+// Wave value at manifold coordinate ξ: sin(k·ξ − wavePhase). ξ is in natural
+// radians on the manifold ([0, 2π) for closed, ℝ for open). wavePhase advances
+// at ω = 2π·c·k / normUnit. For bodyCircle this collapses to c·k/r_body.
+function waveSample(p, xi){ return Math.sin(p.k*xi - p.wavePhase); }
+function thrValFor(p){ return Math.sin(Math.PI*(p.dc-0.5)); }
+function cArcFor(p){
+  const T = Math.max(-1, Math.min(1, thrValFor(p)));
+  return Math.PI + 2*Math.asin(T);
+}
+function waveOmega(p){
+  const nu = p.manifold ? p.manifold.normUnit : (2*Math.PI*S.ballRFrac);
+  if(Math.abs(nu) < 1e-6) return 0;
+  return (2*Math.PI * waveC(p) * p.k) / nu;
+}
+function waveLambda(p){
+  const nu = p.manifold ? p.manifold.normUnit : (2*Math.PI*S.ballRFrac);
+  return (nu * SIZE) / Math.max(1, p.k);
+}
+function waveF(p){ return waveOmega(p) / (2*Math.PI); }
+
+// Direction the wave propagates along the manifold.
+function dirFor(p){ return Math.sign(waveC(p)) || 1; }
+
+// Manifold-projected ξ of a finger's anchor under primitive p.
+function fingerXi(p, i, _t){
+  const anchor = fingerAnchor(i, SIZE/2, SIZE/2, 1);
+  return p.manifold.project(anchor);
+}
+
+// Legacy aliases — single-wave callers.
+function ballOmega(){ return bodyOmega(); }
+function resultantOmegaObj(){ return bodyOmega() / (2*Math.PI); }
+
+// Phase geometry for tangential sawtooth, given a threshold value.
+function cGeomFor(Teff){
+  const T = Math.max(-0.999, Math.min(0.999, Teff));
+  const a=Math.asin(T);
+  return{T,cArc:Math.PI+2*a,rArc:Math.PI-2*a,cStart:Math.PI-a};
+}
+
+// Tangential sawtooth offset for a finger at body-frame angle ξ. Used by the
+// "sweep position per finger" panel in ring mode.
+function sawOffByThetaObj(p, xi_anchor, wavePhase){
+  const T = thrValFor(p);
+  const {cArc,rArc,cStart} = cGeomFor(T);
+  const phase = p.k*xi_anchor - wavePhase;
+  const phMod = ((phase%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  let ph = phMod - cStart; if(ph<0) ph += 2*Math.PI;
+  const sm = sweepMaxFor(p);
+  return ph<cArc ? sm*(ph/cArc) : sm*(1-(ph-cArc)/rArc);
+}
+
+// ─── Finger position ──────────────────────────────────────────────────────────
+// In v11, each finger may participate in MULTIPLE primitives. Contact is OR
+// across primitives; sticky grip is a single per-finger state driven by the
+// rising edge of the OR.
+
+// Legacy single-wave accessors (kept as stubs; some draw code reads them).
+function fingerWaveIdx(_i){ return 0; }
+function fingerWave(_i){ return S.primitives[Math.min(S.activePrimitive, S.primitives.length-1)] || null; }
+
+// Workspace gate: each finger can only touch points within S.fingerReach * SIZE
+// of its anchor. If the wave's proposed contact is outside this disc, the
+// contact is blocked and the finger tip is clipped to the disc boundary in the
+// direction it was reaching. Returns `outOfReach` so callers can mark the
+// contact false. The clipped (r_contact, theta_obj_contact) reflect where the
+// finger ACTUALLY ends up — stuck at its reach limit, pointing toward the
+// would-be contact.
+function clipToReach(r_contact, theta_obj_contact, obj, anchor){
+  const reachPx = S.fingerReach * SIZE;
+  const cx = obj.x + r_contact * Math.sin(theta_obj_contact);
+  const cy = obj.y - r_contact * Math.cos(theta_obj_contact);
+  const dx = cx - anchor.x, dy = cy - anchor.y;
+  const d = Math.hypot(dx, dy);
+  if(d <= reachPx) return { r_contact, theta_obj_contact, outOfReach: false };
+  const norm = d || 1;
+  const tipX = anchor.x + reachPx * dx/norm;
+  const tipY = anchor.y + reachPx * dy/norm;
+  const dx2 = tipX - obj.x, dy2 = tipY - obj.y;
+  return {
+    r_contact: Math.hypot(dx2, dy2),
+    theta_obj_contact: Math.atan2(dx2, -dy2),
+    outOfReach: true
+  };
+}
+
+// ─── Per-primitive slot recruitment (v11) ───────────────────────────────────
+// Each primitive maintains its own slots independently. For closed manifolds:
+// n_w fixed slots at ξ_s = (s/n_w)·2π, ranked by manifold projection. For
+// open manifolds: no slot quantisation — every reachable finger samples at
+// its raw projection.
+
+function fingerThetaObjNow(i){
+  const cx = SIZE/2, cy = SIZE/2;
+  const obj = objectCentre(S.time, cx, cy, 1);
+  const anchor = fingerAnchor(i, cx, cy, 1);
+  return fingerObjFrame(anchor.x, anchor.y, obj.x, obj.y).theta_obj;
+}
+
+// Manifold-projected ξ of finger i's anchor under primitive p.
+function fingerManifoldXi(p, i){
+  const anchor = fingerAnchor(i, SIZE/2, SIZE/2, 1);
+  return p.manifold.project(anchor);
+}
+
+// Reach test: anchor is within reach of the surface relevant to primitive p.
+function fingerAnchorInReach(p, i){
+  const cx = SIZE/2, cy = SIZE/2;
+  const obj = objectCentre(S.time, cx, cy, 1);
+  const anchor = fingerAnchor(i, cx, cy, 1);
+  const af = fingerObjFrame(anchor.x, anchor.y, obj.x, obj.y);
+  const isInner = p && p.surface === 'inner';
+  const sR = isInner ? objRInner(af.theta_obj - S.ballAngle) : objR(af.theta_obj - S.ballAngle);
+  const sx = obj.x + sR * Math.sin(af.theta_obj);
+  const sy = obj.y - sR * Math.cos(af.theta_obj);
+  return Math.hypot(sx - anchor.x, sy - anchor.y) <= S.fingerReach * SIZE;
+}
+
+function updateWaveSlots(){
+  for(const p of S.primitives) updateOnePrimitiveSlots(p);
+}
+
+function updateOnePrimitiveSlots(p){
+  // Open manifolds: no slot quantisation; alphaEffForFinger returns raw projection.
+  if(p.manifold && !p.manifold.isClosed){
+    p._slots = [];
+    return;
+  }
+  const n_w = Math.max(1, Math.min(S.n, p.nWave|0 || S.n));
+  if(!Array.isArray(p._slots) || p._slots.length !== n_w){
+    p._slots = new Array(n_w).fill(-1);
+  }
+  const reachable = [];
+  const reachSet = new Set();
+  for(let i=0; i<S.n; i++){
+    if(!S.fingerActive[i]) continue;
+    if(fingerAnchorInReach(p, i)){
+      reachable.push(i);
+      reachSet.add(i);
+    }
+  }
+  reachable.sort((a, b) => fingerManifoldXi(p, a) - fingerManifoldXi(p, b));
+  const m = reachable.length;
+
+  for(let s=0; s<n_w; s++){
+    if(p._slots[s] >= 0 && !reachSet.has(p._slots[s])) p._slots[s] = -1;
+  }
+  const claimed = new Set();
+  let nFilled = 0;
+  for(let s=0; s<n_w; s++){
+    if(p._slots[s] >= 0){ claimed.add(p._slots[s]); nFilled++; }
+  }
+  if(nFilled === 0 && m > 0){
+    if(m <= n_w){
+      for(let s=0; s<m; s++) p._slots[s] = reachable[s];
+    } else {
+      const stride = m / n_w;
+      for(let s=0; s<n_w; s++){
+        const idx = Math.min(m-1, Math.floor(s * stride));
+        p._slots[s] = reachable[idx];
+      }
+    }
+  } else {
+    const candidates = reachable.filter(f => !claimed.has(f));
+    let ci = 0;
+    for(let s=0; s<n_w; s++){
+      if(p._slots[s] < 0 && ci < candidates.length){
+        p._slots[s] = candidates[ci++];
+      }
+    }
+  }
+}
+
+// ξ_eff for finger i on primitive p's manifold. null = idle for that primitive.
+function alphaEffForFinger(p, i){
+  if(!p) return null;
+  const man = p.manifold;
+  if(man && !man.isClosed){
+    return fingerAnchorInReach(p, i) ? fingerManifoldXi(p, i) : null;
+  }
+  if(!p._slots) return null;
+  const slot = p._slots.indexOf(i);
+  if(slot < 0) return null;
+  return (slot / Math.max(1, p._slots.length)) * 2*Math.PI;
+}
+
+// One primitive's verdict on finger i at the current state.
+function primContactAt(p, i, anchor, alpha_anchor){
+  const T = thrValFor(p);
+  const ae = alphaEffForFinger(p, i);
+  const xi_fallback = p.manifold ? p.manifold.project(anchor) : alpha_anchor;
+  const xi = (ae !== null ? ae : xi_fallback) + p.phase;
+  const wavePhaseAtFinger = p.k * xi - p.wavePhase;
+  const wval = Math.sin(wavePhaseAtFinger);
+  const contact = (ae !== null) && (wval <= T);
+  const lift_norm = (wval > T) ? (wval - T)/Math.max(0.001, 1 - Math.min(T, 0.999)) : 0;
+  return { contact, wval, lift_norm, ae, T, wavePhaseAtFinger };
+}
+
+function fingerPos(i, t){
+  const cx = SIZE/2, cy = SIZE/2;
+  const z = 1;
+  const obj = objectCentre(t, cx, cy, z);
+  const anchor = fingerAnchor(i, cx, cy, z);
+  const af = fingerObjFrame(anchor.x, anchor.y, obj.x, obj.y);
+  const theta_obj_anchor = af.theta_obj;
+  const alpha_anchor = theta_obj_anchor - S.ballAngle;
+
+  if(!S.primitives.length){
+    return {
+      contact:false, ring:0, waveIdx:-1, outOfReach:false,
+      theta_obj_anchor, theta_obj_contact: theta_obj_anchor,
+      alpha_anchor, alpha_target: alpha_anchor,
+      r_anchor: af.r_anchor, r_contact: af.r_anchor,
+      surf: 0, surf_at_anchor: 0,
+      Teff: 0, w: 0, lift: 0,
+      anchor_x: anchor.x, anchor_y: anchor.y, obj_x: obj.x, obj_y: obj.y,
+    };
+  }
+
+  const isInner = S.primitives.some(p => p.surface === 'inner');
+  const surfaceAt = (alpha) => isInner ? surfaceRInner(alpha) : surfaceR(alpha);
+  const trueAt    = (alpha) => isInner ? objRInner(alpha)    : objR(alpha);
+
+  // Evaluate every primitive; OR the contact decisions; max the lift.
+  let anyContact = false;
+  let maxLiftNorm = 0;
+  let activeP = null;
+  let activeRes = null;
+  let maxPres = 0;
+  for(let pi=0; pi<S.primitives.length; pi++){
+    const p = S.primitives[pi];
+    const res = primContactAt(p, i, anchor, alpha_anchor);
+    if(res.contact){
+      anyContact = true;
+      if(!activeP){ activeP = p; activeRes = res; }
+    }
+    if(res.lift_norm > maxLiftNorm){
+      maxLiftNorm = res.lift_norm;
+      if(!activeP){ activeP = p; activeRes = res; }
+    }
+    const pres_p = (S.fingerSlotPres2D[pi] && S.fingerSlotPres2D[pi][i]) || 0;
+    if(pres_p > maxPres) maxPres = pres_p;
+  }
+  if(!activeP){
+    activeP = S.primitives[Math.min(S.activePrimitive, S.primitives.length-1)];
+    activeRes = primContactAt(activeP, i, anchor, alpha_anchor);
+  }
+  const A = waveAmp(activeP);
+  const wave_lift = maxLiftNorm * A;
+  const T = activeRes.T;
+  const wavePhaseAtFinger = activeRes.wavePhaseAtFinger;
+
+  if(S.waveFrame === 'object'){
+    let contact = anyContact;
+    let alpha_target;
+    if(contact && !isNaN(S.grabbedAlpha[i])){
+      alpha_target = S.grabbedAlpha[i];
+    } else if(!isNaN(S.releasedAlpha[i])){
+      const cg = cGeomFor(T);
+      const phMod = ((wavePhaseAtFinger%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+      let ph = phMod - cg.cStart; if(ph<0) ph += 2*Math.PI;
+      let frac = ph<cg.cArc ? 1 : (ph - cg.cArc)/Math.max(0.0001, cg.rArc);
+      if(dirFor(activeP) > 0) frac = 1 - frac;
+      const ease = frac*frac*(3 - 2*frac);
+      let delta = alpha_anchor - S.releasedAlpha[i];
+      while(delta >  Math.PI) delta -= 2*Math.PI;
+      while(delta < -Math.PI) delta += 2*Math.PI;
+      alpha_target = S.releasedAlpha[i] + delta * ease;
+    } else {
+      alpha_target = alpha_anchor;
+    }
+    let theta_obj_contact_in = alpha_target + S.ballAngle;
+    const surf = surfaceAt(alpha_target);
+    const surf_at_anchor = surfaceAt(alpha_anchor);
+    let r_contact_in = isInner ? (surf - wave_lift) : (surf + wave_lift);
+    if(S.revealMode && !isInner){
+      const trueR = trueAt(alpha_target);
+      if(r_contact_in < trueR && contact) r_contact_in = trueR;
+    }
+    const clip = clipToReach(r_contact_in, theta_obj_contact_in, obj, anchor);
+    r_contact_in = clip.r_contact;
+    theta_obj_contact_in = clip.theta_obj_contact;
+    if(clip.outOfReach) contact = false;
+    const tipInSlotX = obj.x + r_contact_in * Math.sin(theta_obj_contact_in);
+    const tipInSlotY = obj.y - r_contact_in * Math.cos(theta_obj_contact_in);
+    const tipX = (1 - maxPres) * anchor.x + maxPres * tipInSlotX;
+    const tipY = (1 - maxPres) * anchor.y + maxPres * tipInSlotY;
+    const dxR = tipX - obj.x, dyR = tipY - obj.y;
+    const r_contact = Math.hypot(dxR, dyR);
+    const theta_obj_contact = Math.atan2(dxR, -dyR);
+    const lift = (1 - maxPres) * A + maxPres * wave_lift;
+    return {
+      contact, ring: isInner ? 1 : 0, waveIdx: 0,
+      outOfReach: clip.outOfReach,
+      theta_obj_anchor, theta_obj_contact,
+      alpha_anchor, alpha_target,
+      r_anchor: af.r_anchor, r_contact,
+      surf, surf_at_anchor,
+      Teff: T, w: activeRes.wval, lift,
+      anchor_x: anchor.x, anchor_y: anchor.y,
+      obj_x: obj.x, obj_y: obj.y
+    };
+  }
+
+  // ── Ring mode — use active primitive for sweep visualisation ────────────
+  const ae = activeRes.ae;
+  const xi_fallback = activeP.manifold ? activeP.manifold.project(anchor) : alpha_anchor;
+  const wave_theta = (ae !== null ? ae : xi_fallback) + activeP.phase;
+  const tangOff = sawOffByThetaObj(activeP, wave_theta, activeP.wavePhase);
+  let theta_obj_contact_in = theta_obj_anchor + tangOff;
+  const surf = surfaceAt(theta_obj_contact_in - S.ballAngle);
+  const surf_at_anchor = surfaceAt(theta_obj_anchor - S.ballAngle);
+  let r_contact_in = isInner ? (surf - wave_lift) : (surf + wave_lift);
+  if(S.revealMode && !isInner){
+    const trueR = trueAt(theta_obj_contact_in - S.ballAngle);
+    if(r_contact_in < trueR && anyContact) r_contact_in = trueR;
+  }
+  const clipR = clipToReach(r_contact_in, theta_obj_contact_in, obj, anchor);
+  r_contact_in = clipR.r_contact;
+  theta_obj_contact_in = clipR.theta_obj_contact;
+  let contact = anyContact && !clipR.outOfReach;
+  const tipInX = obj.x + r_contact_in * Math.sin(theta_obj_contact_in);
+  const tipInY = obj.y - r_contact_in * Math.cos(theta_obj_contact_in);
+  const tipX = (1 - maxPres) * anchor.x + maxPres * tipInX;
+  const tipY = (1 - maxPres) * anchor.y + maxPres * tipInY;
+  const dxR2 = tipX - obj.x, dyR2 = tipY - obj.y;
+  const r_contact = Math.hypot(dxR2, dyR2);
+  const theta_obj_contact = Math.atan2(dxR2, -dyR2);
+  const lift = (1 - maxPres) * A + maxPres * wave_lift;
+  return {
+    contact, ring: isInner ? 1 : 0, waveIdx: 0,
+    outOfReach: clipR.outOfReach,
+    theta_obj_anchor, theta_obj_contact,
+    alpha_anchor,
+    alpha_target: theta_obj_contact - S.ballAngle,
+    r_anchor: af.r_anchor, r_contact,
+    surf, surf_at_anchor,
+    Teff: T, w: activeRes.wval, lift,
+    anchor_x: anchor.x, anchor_y: anchor.y,
+    obj_x: obj.x, obj_y: obj.y
+  };
+}
+
+// ─── Ghost loop ───────────────────────────────────────────────────────────────
+// Ghost loop: trace the finger's trajectory over one wave period as seen
+// from the OBJECT CENTROID. Returns object-frame (dx,dy) offsets which the
+// caller plots relative to the current centroid.
+// The wave decision and sawtooth phase are both at the anchor's θ_obj; only
+// the surface lookup uses the swept contact angle.
+function ghostLoop(i, nPts, currentT){
+  const wv = S.primitives[Math.min(S.activePrimitive, S.primitives.length-1)];
+  if(!wv) return [];
+  const sm = sweepMaxFor(wv);
+  const A = waveAmp(wv);
+  const T = thrValFor(wv);
+  const cx = SIZE/2, cy = SIZE/2;
+  const obj0 = objectCentre(currentT, cx, cy, 1);
+  const anchor = fingerAnchor(i, cx, cy, 1);
+  const theta_obj_anchor = fingerObjFrame(anchor.x, anchor.y, obj0.x, obj0.y).theta_obj;
+  const baseCG = cGeomFor(T);
+  const isInner = wv.surface === 'inner';
+
+  const pts = [];
+  for(let s=0;s<=nPts;s++){
+    const phase = (s/nPts)*2*Math.PI;
+    const w = Math.sin(phase);
+    let ph = phase - baseCG.cStart; if(ph<0) ph += 2*Math.PI;
+    const tangOff = ph<baseCG.cArc ? sm*(ph/baseCG.cArc) : sm*(1-(ph-baseCG.cArc)/baseCG.rArc);
+    const theta_obj_c = theta_obj_anchor + tangOff;
+    const surf = isInner ? surfaceRInner(theta_obj_c - S.ballAngle) : surfaceR(theta_obj_c - S.ballAngle);
+    const lift = w > T ? A*(w-T)/Math.max(0.001, 1-Math.min(T, 0.999)) : 0;
+    const r = isInner ? (surf - lift) : (surf + lift);
+    const dx = r * Math.sin(theta_obj_c);
+    const dy = -r * Math.cos(theta_obj_c);
+    pts.push({ dx, dy, inside: lift<1 });
+  }
+  return pts;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function rgba(hex,a){
+  return`rgba(${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)},${a})`;
+}
+const TEAL='#4ecdc4',AMBER='#f7c59f',WHITE='#ffffff',ROSE='#e07a7a';
+
+function objPath(ctx,cx,cy,objAngle,nPts,z){
+  z=z||1;
+  ctx.beginPath();
+  for(let s=0;s<=nPts;s++){
+    const ang=(s/nPts)*2*Math.PI;
+    const r=objR(ang-objAngle)*z;
+    const x=cx+r*Math.cos(ang-Math.PI/2);
+    const y=cy+r*Math.sin(ang-Math.PI/2);
+    s===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  // Add inner hole as a counter-rotating sub-path so even-odd fill removes it
+  if(hasHole()){
+    for(let s=0;s<=nPts;s++){
+      // Reverse direction so the path winds opposite to the outer
+      const ang=((nPts-s)/nPts)*2*Math.PI;
+      const r=objRInner(ang-objAngle)*z;
+      const x=cx+r*Math.cos(ang-Math.PI/2);
+      const y=cy+r*Math.sin(ang-Math.PI/2);
+      s===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+  }
+}
+
+function drawObject(cx,cy,oR,angle,pattern,z){
+  z=z||1;
+  rc.save(); rc.translate(cx,cy);
+  objPath(rc,0,0,angle,120,z); rc.clip('evenodd'); rc.rotate(angle);
+  if(S.shape === 'pencil'){
+    // Banded pattern perpendicular to length, so rotation is also visible.
+    // Body frame: x ∈ [-W, W], y ∈ [-L, L]; we overfill to ensure clipping
+    // covers the whole shape.
+    const L = oR * 1.5, W = oR * 0.5;
+    const pad = oR;
+    rc.fillStyle = '#d4c4a0'; // pale base
+    rc.fillRect(-W-pad, -L-pad, 2*W+2*pad, 2*L+2*pad);
+    const nBands = 10;
+    const bandH = (2*L) / nBands;
+    for(let i=0; i<nBands; i++){
+      if(i % 2 === 1) continue;
+      rc.fillStyle = '#c0392b';
+      rc.fillRect(-W-pad, -L + i*bandH, 2*W+2*pad, bandH);
+    }
+    // Dark tip at one end (the "lead" end)
+    rc.fillStyle = '#2c3e50';
+    rc.fillRect(-W-pad, -L - pad, 2*W+2*pad, pad + L*0.12);
+  } else if(pattern==='quadrant'){
+    ['#c0392b','#2c3e50','#e67e22','#27ae60'].forEach((c,q)=>{
+      rc.beginPath();rc.moveTo(0,0);rc.arc(0,0,oR*1.5,q*Math.PI/2,(q+1)*Math.PI/2);rc.closePath();rc.fillStyle=c;rc.fill();
+    });
+  }else if(pattern==='stripes'){
+    for(let i=0;i<6;i++){
+      rc.beginPath();rc.moveTo(0,0);rc.arc(0,0,oR*1.5,(i/6)*2*Math.PI,((i+.5)/6)*2*Math.PI);rc.closePath();
+      rc.fillStyle=i%2===0?'#c0392b':'#d4c4a0';rc.fill();
+    }
+  }else{
+    rc.fillStyle='#2c3e50';rc.beginPath();rc.arc(0,0,oR*1.5,0,2*Math.PI);rc.fill();
+    for(let i=0;i<6;i++){
+      const a=(i/6)*2*Math.PI;
+      rc.beginPath();rc.arc(oR*.55*Math.cos(a),oR*.55*Math.sin(a),oR*.17,0,2*Math.PI);
+      rc.fillStyle='rgba(232,228,223,0.88)';rc.fill();
+    }
+  }
+  const sh=rc.createRadialGradient(-oR*.28,-oR*.28,oR*.02,0,0,oR*1.5);
+  sh.addColorStop(0,'rgba(255,255,255,0.24)');sh.addColorStop(.5,'rgba(255,255,255,0)');
+  rc.fillStyle=sh;rc.fillRect(-oR*1.5,-oR*1.5,oR*3,oR*3);
+  rc.restore();
+  rc.save();rc.translate(cx,cy);
+  objPath(rc,0,0,angle,120,z);
+  rc.strokeStyle='rgba(0,0,0,0.22)';rc.lineWidth=1.5;rc.stroke();
+  rc.restore();
+}
+
+function drawObjectRevealed(cx,cy,angle,z){
+  z=z||1;
+  const nSegs=360, segAng=2*Math.PI/nSegs;
+  for(let s=0;s<nSegs;s++){
+    const a0=s*segAng, a1=(s+1)*segAng;
+    const oa0=a0-angle, oa1=a1-angle;
+    const al=(revealAlpha(oa0)+revealAlpha(oa1))/2;
+    if(al<0.01) continue;
+    const r0=objR(oa0)*z, r1=objR(oa1)*z;
+    const x0=cx+r0*Math.cos(a0-Math.PI/2), y0=cy+r0*Math.sin(a0-Math.PI/2);
+    const x1=cx+r1*Math.cos(a1-Math.PI/2), y1=cy+r1*Math.sin(a1-Math.PI/2);
+    rc.beginPath();rc.moveTo(x0,y0);rc.lineTo(x1,y1);
+    rc.strokeStyle=rgba(ROSE,.3+.7*al);rc.lineWidth=2;rc.stroke();
+    if(al>.15){
+      const f=0.85;
+      rc.beginPath();rc.moveTo(x0,y0);rc.lineTo(x1,y1);
+      rc.lineTo(cx+r1*f*Math.cos(a1-Math.PI/2),cy+r1*f*Math.sin(a1-Math.PI/2));
+      rc.lineTo(cx+r0*f*Math.cos(a0-Math.PI/2),cy+r0*f*Math.sin(a0-Math.PI/2));
+      rc.closePath();rc.fillStyle=rgba(ROSE,.06*al);rc.fill();
+    }
+  }
+  // Estimated outline
+  rc.beginPath();
+  for(let s=0;s<=120;s++){
+    const ang=(s/120)*2*Math.PI;
+    const r=estimatedSurface(ang-angle)*z;
+    const x=cx+r*Math.cos(ang-Math.PI/2), y=cy+r*Math.sin(ang-Math.PI/2);
+    s===0?rc.moveTo(x,y):rc.lineTo(x,y);
+  }
+  rc.closePath();
+  rc.strokeStyle=rgba(AMBER,.25);rc.lineWidth=1;rc.setLineDash([4,4]);rc.stroke();rc.setLineDash([]);
+
+  rc.fillStyle=rgba(ROSE,.6);rc.font='9px monospace';rc.textAlign='center';rc.textBaseline='middle';
+  rc.fillText(Math.round(revealCoverage()*100)+'%',cx,cy);
+}
+
+// ─── Draw ring ────────────────────────────────────────────────────────────────
+function drawRing(t){
+  const Z=S.zoom;
+  const CX=SIZE/2, CY=SIZE/2;
+  // Object centroid in screen frame (zoomed). Now driven by S.centroidX/Y
+  // (integrated from per-wave conveying), not by the orbit wave directly.
+  const OBJ_X = CX + S.centroidX * Z;
+  const OBJ_Y = CY + S.centroidY * Z;
+  const R=ballR()*Z;
+  rc.clearRect(0,0,SIZE,SIZE);
+  rc.fillStyle='#161513';rc.fillRect(0,0,SIZE,SIZE);
+
+  const zEl=document.getElementById('corDisplay');
+  if(zEl) zEl.textContent=Z!==1?`${Z.toFixed(2)}×`:'';
+
+  // Guide rings (finger anchor circles). Outer is always shown; inner is shown
+  // only when at least one finger is on a wave that targets the inner surface.
+  const R_ring_outer = S.ringROuter * SIZE * Z;
+  rc.beginPath();rc.arc(CX,CY,R_ring_outer,0,2*Math.PI);
+  rc.strokeStyle='rgba(255,255,255,0.04)';rc.lineWidth=1;rc.setLineDash([2,6]);rc.stroke();rc.setLineDash([]);
+  const hasInnerFingers = S.primitives && S.primitives.some(p => p.surface === 'inner');
+  if(hasInnerFingers){
+    const R_ring_inner = S.ringRInner * SIZE * Z;
+    rc.beginPath();rc.arc(CX,CY,R_ring_inner,0,2*Math.PI);
+    rc.strokeStyle='rgba(255,255,255,0.04)';rc.lineWidth=1;rc.setLineDash([2,6]);rc.stroke();rc.setLineDash([]);
+  }
+
+  // Workspace discs: per-finger reach boundary, drawn faintly when toggled on.
+  // Colour-coded by wave so you can see which wave each anchor belongs to.
+  if(S.showWorkspace){
+    const reachPx = S.fingerReach * SIZE * Z;
+    for(let i=0;i<S.n;i++){
+      if(!S.fingerActive[i]) continue;
+      const a = fingerAnchor(i, CX, CY, Z);
+      const col = WAVE_COLORS[0];
+      rc.beginPath();rc.arc(a.x, a.y, reachPx, 0, 2*Math.PI);
+      rc.strokeStyle = rgba(col, 0.08);
+      rc.lineWidth = 1; rc.setLineDash([1,3]); rc.stroke(); rc.setLineDash([]);
+    }
+  }
+
+  // Base-radius guide circle around OBJECT centroid (not canvas centre)
+  rc.beginPath();rc.arc(OBJ_X,OBJ_Y,R,0,2*Math.PI);
+  rc.strokeStyle='rgba(255,255,255,0.06)';rc.lineWidth=1;rc.setLineDash([3,5]);rc.stroke();rc.setLineDash([]);
+
+  // Inner-surface (hole) guide ring around object centroid
+  if(hasHole()){
+    const Rinner = objRInner(0) * Z;
+    rc.beginPath();rc.arc(OBJ_X,OBJ_Y,Rinner,0,2*Math.PI);
+    rc.strokeStyle='rgba(255,255,255,0.06)';rc.lineWidth=1;rc.setLineDash([3,5]);rc.stroke();rc.setLineDash([]);
+  }
+
+  // Ghost loops — points are object-frame offsets at the current centroid.
+  // Only meaningful in RING mode (where each finger traces a closed loop per wave
+  // period). In OBJECT mode, the finger grabs and carries a material point, so its
+  // trajectory in world frame is an arc that depends on object spin; in object
+  // frame, the trajectory is essentially a vertical lift-off spike at the anchor's
+  // projection — not informative as a ghost loop. We skip ghosts in object mode.
+  if(S.showGhost && S.waveFrame === 'ring'){
+    for(let i=0;i<S.n;i++){
+      if(!S.fingerActive[i]) continue;
+      // Only recruited fingers (those in a slot) actually trace a meaningful
+      // ghost loop. Idle fingers sit at their anchor and shouldn't be drawn.
+      if(alphaEffForFinger(i) === null) continue;
+      const ghost = ghostLoop(i, 200, t);
+      const pts = ghost.map(p=>({
+        x: OBJ_X + p.dx*Z,
+        y: OBJ_Y + p.dy*Z,
+        inside: p.inside
+      }));
+      for(const[inside,alpha,dash]of[[true,.15,[2,3]],[false,.36,[]]]){
+        rc.setLineDash(dash);
+        let seg=[];
+        const flush=()=>{
+          if(seg.length<2){seg=[];return;}
+          rc.beginPath();rc.moveTo(seg[0].x,seg[0].y);
+          for(let j=1;j<seg.length;j++)rc.lineTo(seg[j].x,seg[j].y);
+          rc.strokeStyle=rgba(TEAL,alpha);rc.lineWidth=inside?1:1.2;rc.stroke();
+          seg=[];
+        };
+        [...pts,pts[0]].forEach((p,si)=>{
+          if(p.inside===inside)seg.push(p);else flush();
+          if(si>=pts.length)flush();
+        });
+        flush();rc.setLineDash([]);
+      }
+    }
+  }
+
+  // Object — drawn at its centroid
+  if(S.showBall){
+    if(S.revealMode) drawObjectRevealed(OBJ_X,OBJ_Y,S.ballAngle,Z);
+    else drawObject(OBJ_X,OBJ_Y,R,S.ballAngle,S.ballPattern,Z);
+  }
+
+  // Finger anchors (faint reference points on the ring)
+  for(let i=0;i<S.n;i++){
+    if(!S.fingerActive[i]) continue;
+    const a = fingerAnchor(i, CX, CY, Z);
+    rc.beginPath();rc.arc(a.x,a.y,1.5,0,2*Math.PI);
+    rc.fillStyle='rgba(255,255,255,0.15)';rc.fill();
+  }
+
+  // Constraint arcs: each finger in contact is constrained to an arc of radius
+  // r_contact around the object centroid. The arc is the geometric locus of
+  // points where the finger COULD be while satisfying its current contact
+  // constraint (1-DoF: stay at fixed r from the CoR). Drawn faintly so as not
+  // to dominate; brighter for the watched finger.
+  for(let i=0;i<S.n;i++){
+    if(!S.fingerActive[i]) continue;
+    const fp = fingerPos(i,t);
+    if(!fp.contact) continue;
+    const r = fp.r_contact * Z;
+    const watched = i===S.watchFinger;
+    rc.beginPath();rc.arc(OBJ_X,OBJ_Y,r,0,2*Math.PI);
+    rc.strokeStyle=rgba(TEAL, watched?.18:.08);
+    rc.lineWidth=watched?1.2:1;
+    rc.setLineDash([1,3]);
+    rc.stroke();
+    rc.setLineDash([]);
+  }
+
+  // Fingers — contact points sit on the object surface (object-frame angle θ_obj_contact)
+  for(let i=0;i<S.n;i++){
+    if(!S.fingerActive[i]) continue;
+    const fp = fingerPos(i,t);
+    const watched = i===S.watchFinger;
+    // Convert object-frame (theta_obj_contact, r_contact) to screen at current zoom
+    const px = OBJ_X + fp.r_contact * Z * Math.sin(fp.theta_obj_contact);
+    const py = OBJ_Y - fp.r_contact * Z * Math.cos(fp.theta_obj_contact);
+    const dotR=fp.contact?6:5;
+
+    // Stem line from anchor to contact point (faint, helps see hand structure).
+    // Out-of-reach fingers are drawn even fainter — visually communicates that
+    // they are reaching to their limit but not touching anything.
+    const a = fingerAnchor(i, CX, CY, Z);
+    const outOfReach = !!fp.outOfReach;
+    rc.beginPath();rc.moveTo(a.x,a.y);rc.lineTo(px,py);
+    rc.strokeStyle = rgba(TEAL, fp.contact ? .18 : (outOfReach ? .04 : .07));
+    rc.lineWidth = 1; rc.stroke();
+
+    if(fp.contact){
+      const grd=rc.createRadialGradient(px,py,0,px,py,dotR*3.5);
+      grd.addColorStop(0,rgba(TEAL,.3));grd.addColorStop(1,rgba(TEAL,0));
+      rc.beginPath();rc.arc(px,py,dotR*3.5,0,2*Math.PI);rc.fillStyle=grd;rc.fill();
+    }
+    rc.beginPath();rc.arc(px,py,dotR,0,2*Math.PI);
+    rc.fillStyle = watched ? WHITE
+                  : fp.contact ? rgba(TEAL,1)
+                  : outOfReach ? rgba(TEAL, .12)
+                  : rgba(TEAL,.28);
+    rc.fill();
+
+    if(fp.contact){
+      // Arrow indicates tangential motion direction at the contact point
+      // (perpendicular to the line from object centroid to finger)
+      const arrowLen=11;
+      // Radial direction (object centroid → contact): (sin(θ), -cos(θ))
+      // Tangent (90° CW from radial): (-cos(θ), -sin(θ))... but signed by sweep & dir.
+      const tx = Math.cos(fp.theta_obj_contact);
+      const ty = Math.sin(fp.theta_obj_contact);
+      // Motion direction during contact = sign of ω_obj. Holds in both modes,
+      // because dir is derived from sign(omegaObj)/sign(sweep) so the finger's
+      // tangential motion (ring mode) and the held material point's motion
+      // (object mode) both follow ω_obj.
+      const motionDir = Math.sign(resultantOmegaObj()) || 1;
+      const ax = px + motionDir * arrowLen * tx;
+      const ay = py + motionDir * arrowLen * ty;
+      rc.beginPath();rc.moveTo(px,py);rc.lineTo(ax,ay);
+      rc.strokeStyle=rgba(WHITE,.68);rc.lineWidth=1.4;rc.stroke();
+      const ha=4.5,hAng=Math.atan2(ay-py,ax-px);
+      rc.beginPath();rc.moveTo(ax,ay);
+      rc.lineTo(ax-ha*Math.cos(hAng-.42),ay-ha*Math.sin(hAng-.42));
+      rc.lineTo(ax-ha*Math.cos(hAng+.42),ay-ha*Math.sin(hAng+.42));
+      rc.closePath();rc.fillStyle=rgba(WHITE,.68);rc.fill();
+    }
+    if(S.n<=12){
+      rc.fillStyle=fp.contact?rgba(WHITE,.75):rgba(WHITE,.18);
+      rc.font='8px monospace';rc.textAlign='center';rc.textBaseline='middle';
+      rc.fillText(i,px,py);
+    }
+  }
+
+  // Canvas centre dot (just for reference)
+  rc.beginPath();rc.arc(CX,CY,2.5,0,2*Math.PI);rc.fillStyle='rgba(255,255,255,0.10)';rc.fill();
+
+  // Object centroid marker (when displaced from canvas centre)
+  const displaced = Math.abs(S.centroidX)>0.5 || Math.abs(S.centroidY)>0.5;
+  if(displaced){
+    rc.beginPath();rc.arc(OBJ_X,OBJ_Y,2.5,0,2*Math.PI);
+    rc.fillStyle=rgba(AMBER,.55);rc.fill();
+    rc.beginPath();rc.moveTo(CX,CY);rc.lineTo(OBJ_X,OBJ_Y);
+    rc.strokeStyle=rgba(AMBER,.18);rc.lineWidth=1;rc.setLineDash([2,3]);rc.stroke();rc.setLineDash([]);
+  }
+
+  // Per-primitive externalRotation centre markers + predicted orbit circles.
+  S.primitives.forEach((p, pi) => {
+    const ext = p.flows.find(f => f.kind === 'externalRotation');
+    if(!ext || Math.abs(ext.omega) < 1e-6) return;
+    const col = WAVE_COLORS[pi % WAVE_COLORS.length];
+    const cx = CX + ext.cx * SIZE * Z;
+    const cy = CY + ext.cy * SIZE * Z;
+    const r = Math.hypot(S.centroidX - ext.cx*SIZE, S.centroidY - ext.cy*SIZE) * Z;
+    if(r > 4){
+      rc.beginPath();rc.arc(cx, cy, r, 0, 2*Math.PI);
+      rc.strokeStyle = rgba(col, 0.12);rc.lineWidth = 1;rc.setLineDash([2,4]);
+      rc.stroke();rc.setLineDash([]);
+    }
+    rc.strokeStyle = rgba(col, 0.6);rc.lineWidth = 1.2;
+    rc.beginPath();rc.moveTo(cx-5, cy);rc.lineTo(cx+5, cy);rc.stroke();
+    rc.beginPath();rc.moveTo(cx, cy-5);rc.lineTo(cx, cy+5);rc.stroke();
+    rc.fillStyle = rgba(col, 0.5);rc.font = '7px monospace';rc.textAlign = 'center';
+    rc.fillText(`P${pi+1} centre`, cx, cy+13);
+  });
+
+  // Orbit "wish" trace: under the conveyor model the orbit wave no longer
+  // drives the body, but it's still drawn as a reference path so you can see
+  // how the actual centroid (from conveyVel integration) compares to a desired
+  // orbit. Drawn dotted + dim + labelled.
+  if(Math.abs(S.orbAx)>0.001 || Math.abs(S.orbAy)>0.001){
+    const wOrb = S.orbOmega;
+    const N = 64;
+    rc.beginPath();
+    for(let s=0;s<=N;s++){
+      const tau = (s/N)*(wOrb>0.001 ? (2*Math.PI/wOrb) : 1);
+      const o = orbitOffset(tau);
+      const x = CX + o.dx*Z, y = CY + o.dy*Z;
+      s===0?rc.moveTo(x,y):rc.lineTo(x,y);
+    }
+    rc.closePath();
+    rc.strokeStyle=rgba(AMBER,.12);rc.lineWidth=1;rc.setLineDash([2,4]);rc.stroke();rc.setLineDash([]);
+    // Label
+    const oNow = orbitOffset(t);
+    rc.fillStyle=rgba(AMBER,.4);rc.font='7px monospace';rc.textAlign='center';
+    rc.fillText('orbit wish', CX + oNow.dx*Z, CY + oNow.dy*Z - 8);
+  }
+  // Conveying direction arrow from the body centroid.
+  if(S.showConveyArrow){
+    const v = bodyConveyVel();
+    const mag = Math.hypot(v.vx, v.vy);
+    if(mag > 0.001){
+      const arrowLen = Math.min(80, mag * SIZE * 2);
+      const ux = v.vx/mag, uy = v.vy/mag;
+      const ax = OBJ_X + ux * arrowLen;
+      const ay = OBJ_Y + uy * arrowLen;
+      rc.beginPath();rc.moveTo(OBJ_X, OBJ_Y);rc.lineTo(ax, ay);
+      rc.strokeStyle = rgba('#9ec5e8', 0.65);rc.lineWidth = 1.8;rc.stroke();
+      const a = Math.atan2(ay - OBJ_Y, ax - OBJ_X);
+      const ha = 6;
+      rc.beginPath();rc.moveTo(ax, ay);
+      rc.lineTo(ax - ha*Math.cos(a-0.42), ay - ha*Math.sin(a-0.42));
+      rc.lineTo(ax - ha*Math.cos(a+0.42), ay - ha*Math.sin(a+0.42));
+      rc.closePath();rc.fillStyle = rgba('#9ec5e8', 0.65);rc.fill();
+    }
+  }
+
+  const ly=SIZE-13;rc.font='10px Georgia,serif';rc.textBaseline='middle';rc.textAlign='left';
+  rc.fillStyle=TEAL;rc.fillText('● contact',14,ly);
+  rc.fillStyle=rgba(TEAL,.38);rc.fillText('● retracted',90,ly);
+  if(S.revealMode){rc.fillStyle=rgba(ROSE,.6);rc.fillText('◐ revealed',182,ly);rc.fillStyle=rgba(AMBER,.4);rc.fillText('╌ estimate',270,ly);}
+
+  if(displaced){
+    rc.fillStyle=rgba(AMBER,.5);rc.font='7px monospace';rc.textAlign='center';rc.textBaseline='bottom';
+    rc.fillText('obj',OBJ_X,OBJ_Y-5);
+  }
+}
+
+// ─── Wave panels ──────────────────────────────────────────────────────────────
+// Layout (top to bottom):
+//   1. Surface r(θ_obj) — object profile, no nodes
+//   2. W(θ_obj, t) — make/break wave panning through, with flat threshold line, no nodes
+//   3. Tangential sawtooth — per-finger sweep position rows, with nodes
+//   4. Trajectory — "unrolled GUI": surface curve + finger nodes at (θ_obj_contact, r_contact)
+//      Nodes surf along the surface curve during contact, lift above during retraction.
+function drawWavePanels(t){
+  // No waves → blank panels (just an "(no waves)" label).
+  if(!S.primitives.length){
+    [wcSurface, wcRadial, wcSaw, wcSum].forEach(c => {
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.fillStyle='#0f0f0e'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.fillStyle = rgba(AMBER, 0.35);
+      ctx.font='9px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('(no primitives)', c.width/2, c.height/2);
+    });
+    drawOrbitPanel(t);
+    return;
+  }
+  // Panels visualise the active primitive (S.activePrimitive).
+  const pw = Math.min(S.activePrimitive||0, S.primitives.length-1);
+  const wPanel = S.primitives[pw];
+  const T = thrValFor(wPanel);
+  const R = ballR();
+  const A = waveAmp(wPanel);
+  const fi = S.watchFinger;
+  const isObj = S.waveFrame === 'object';
+  const axisLabel = isObj ? 'ξ' : 'θ_obj';
+  const sx = isObj ? 0 : S.ballAngle;
+
+  // Panel ξ window. Closed manifolds: [0, 2π]. Open: ±2π so a few wavelengths fit.
+  const isOpen = wPanel.manifold && !wPanel.manifold.isClosed;
+  const panelXiLo = isOpen ? -Math.PI*2 : 0;
+  const panelXiHi = isOpen ?  Math.PI*2 : 2*Math.PI;
+  const panelXiSpan = panelXiHi - panelXiLo;
+  const wrap = (theta) => isOpen ? theta : (((theta%(2*Math.PI))+2*Math.PI)%(2*Math.PI));
+  const thetaToX = (theta, w) => isOpen
+    ? ((theta - panelXiLo) / panelXiSpan) * w
+    : (wrap(theta)/(2*Math.PI))*w;
+
+  // Wave value at panel x: map x ∈ [0, W] to ξ ∈ [panelXiLo, panelXiHi].
+  const panelWaveAtX = (x, W) => {
+    const xi = panelXiLo + (x/W) * panelXiSpan + wPanel.phase;
+    return waveSample(wPanel, xi);
+  };
+
+  const cx=SIZE/2, cy=SIZE/2;
+  const obj = objectCentre(t, cx, cy, 1);
+  const fingerThetaObj = (i) => {
+    const a = fingerAnchor(i, cx, cy, 1);
+    return fingerObjFrame(a.x, a.y, obj.x, obj.y).theta_obj;
+  };
+  // Panel x for finger i: slot-anchored ξ + phase (idle fingers use raw projection).
+  const fingerPanelAngle = (i) => {
+    const fw = wPanel;
+    const ae = alphaEffForFinger(fw, i);
+    if(ae !== null) return ae + fw.phase;
+    const anchor = fingerAnchor(i, cx, cy, 1);
+    const base = fw.manifold ? fw.manifold.project(anchor)
+                             : (isObj ? (fingerThetaObj(i) - S.ballAngle) : fingerThetaObj(i));
+    return base + fw.phase;
+  };
+
+  // ── 1. Surface r(θ_obj) ──────────────────────────────────────────────────
+  const c1 = wcSurface.getContext('2d');
+  const W1 = wcSurface.width, H1 = wcSurface.height;
+  c1.clearRect(0,0,W1,H1); c1.fillStyle='#0f0f0e'; c1.fillRect(0,0,W1,H1);
+
+  // Y range for surface panel (also used by trajectory panel)
+  let rMin=Infinity, rMax=-Infinity;
+  const NSAMP = 360;
+  for(let s=0;s<=NSAMP;s++){
+    const th=(s/NSAMP)*2*Math.PI;
+    const r = surfaceR(th - sx);
+    if(r<rMin)rMin=r; if(r>rMax)rMax=r;
+    if(S.revealMode){
+      const re = estimatedSurface(th - sx);
+      const rt = objR(th - sx);
+      if(re<rMin)rMin=re; if(re>rMax)rMax=re;
+      if(rt<rMin)rMin=rt; if(rt>rMax)rMax=rt;
+    }
+  }
+  const rPad=(rMax-rMin)*0.3 || R*0.1;
+  const rLo=rMin-rPad, rHi=rMax+rPad;
+  const rToY1 = (r)=> H1 - (r-rLo)/(rHi-rLo)*H1*0.9 - H1*0.05;
+
+  // Base radius line
+  c1.beginPath();c1.moveTo(0,rToY1(R));c1.lineTo(W1,rToY1(R));
+  c1.strokeStyle='rgba(255,255,255,0.06)';c1.lineWidth=1;c1.setLineDash([3,5]);c1.stroke();c1.setLineDash([]);
+
+  if(S.revealMode){
+    // True surface (dashed)
+    c1.beginPath();
+    for(let x=0;x<=W1;x++){
+      const r=objR((x/W1)*2*Math.PI - sx);
+      x===0?c1.moveTo(x,rToY1(r)):c1.lineTo(x,rToY1(r));
+    }
+    c1.strokeStyle=rgba(AMBER,.3);c1.lineWidth=1;c1.setLineDash([3,3]);c1.stroke();c1.setLineDash([]);
+    // Estimated surface (solid)
+    c1.beginPath();
+    for(let x=0;x<=W1;x++){
+      const r=estimatedSurface((x/W1)*2*Math.PI - sx);
+      x===0?c1.moveTo(x,rToY1(r)):c1.lineTo(x,rToY1(r));
+    }
+    c1.strokeStyle=rgba(ROSE,.7);c1.lineWidth=1.5;c1.stroke();
+  } else {
+    c1.beginPath();
+    for(let x=0;x<=W1;x++){
+      const r=objR((x/W1)*2*Math.PI - sx);
+      x===0?c1.moveTo(x,rToY1(r)):c1.lineTo(x,rToY1(r));
+    }
+    c1.strokeStyle=rgba(AMBER,.7);c1.lineWidth=1.5;c1.stroke();
+  }
+  c1.fillStyle=rgba(AMBER,.5);c1.font='8px monospace';c1.textAlign='left';c1.textBaseline='top';
+  c1.fillText(S.revealMode?`r(${axisLabel}) est. (true dashed)`:`r(${axisLabel})`,2,2);
+
+  // ── 2. Make/break wave W(θ_obj, t) ──────────────────────────────────────
+  const c2 = wcRadial.getContext('2d');
+  const W2 = wcRadial.width, H2 = wcRadial.height;
+  c2.clearRect(0,0,W2,H2); c2.fillStyle='#0f0f0e'; c2.fillRect(0,0,W2,H2);
+  const wMid=H2*.5, wAmpPx=H2*.38;
+
+  // Zero line
+  c2.beginPath();c2.moveTo(0,wMid);c2.lineTo(W2,wMid);
+  c2.strokeStyle='rgba(255,255,255,0.05)';c2.lineWidth=1;c2.stroke();
+
+  // Flat duty-cycle threshold
+  const thrY = wMid - T*wAmpPx;
+  c2.beginPath();c2.moveTo(0,thrY);c2.lineTo(W2,thrY);
+  c2.strokeStyle=rgba(AMBER,.5);c2.lineWidth=1;c2.setLineDash([4,3]);c2.stroke();c2.setLineDash([]);
+  c2.fillStyle=rgba(AMBER,.5);c2.font='7px monospace';c2.textAlign='right';c2.textBaseline='middle';
+  c2.fillText('T',W2-2,thrY+(T>0?-7:7));
+
+  // Contact shading: where the panel wave ≤ T. Panel x represents the wave's
+  // spatial argument; including phaseOffset shifts the curve so it tracks
+  // alongside the finger dots (which are drawn at α_eff + phaseOffset).
+  for(let x=0;x<W2;x++){
+    const w=panelWaveAtX(x, W2);
+    if(w<=T){
+      const wy=wMid-w*wAmpPx;
+      c2.fillStyle=rgba(TEAL,.12);
+      c2.fillRect(x, Math.min(wy, thrY), 1, Math.abs(wy - thrY)+1);
+    }
+  }
+
+  // Wave curve (panel wave only)
+  c2.beginPath();
+  for(let x=0;x<=W2;x++){
+    const y=wMid-panelWaveAtX(x, W2)*wAmpPx;
+    x===0?c2.moveTo(x,y):c2.lineTo(x,y);
+  }
+  c2.strokeStyle=rgba(TEAL,.75);c2.lineWidth=1.5;c2.stroke();
+
+  // Finger dots on the wave panel — only recruited (in-slot) fingers sample.
+  if(S.nodeMode!=='none'){
+    const fs=S.nodeMode==='all'?Array.from({length:S.n},(_,i)=>i):[fi];
+    fs.forEach(i=>{
+      if(!S.fingerActive[i]) return;
+      const fw = wPanel;
+      if(alphaEffForFinger(fw, i) === null) return;
+      const th = fingerPanelAngle(i);
+      const nx = thetaToX(th, W2);
+      const w = waveSample(fw, th);
+      const T_w = thrValFor(fw);
+      const wClamped = Math.max(w, T_w);
+      const ny = wMid - wClamped*wAmpPx;
+      const isC = w<=T_w, isW = i===fi;
+      const baseColor = TEAL;
+      c2.beginPath();c2.arc(nx,ny,isW?4:2.5,0,2*Math.PI);
+      c2.fillStyle=isW?WHITE:(isC?rgba(baseColor,.9):rgba(baseColor,.45));c2.fill();
+      if(isC){c2.beginPath();c2.arc(nx,ny,isW?6:4,0,2*Math.PI);c2.fillStyle=rgba(baseColor,isW?.2:.1);c2.fill();}
+    });
+  }
+
+  c2.fillStyle=rgba(TEAL,.5);c2.font='8px monospace';c2.textAlign='left';c2.textBaseline='top';
+  c2.fillText(`W(${axisLabel},t)  primitive ${pw+1}/${S.primitives.length}`,2,2);
+
+  // ── 3. Tangential sawtooth — per-finger sweep position rows ────────────
+  const c3 = wcSaw.getContext('2d');
+  const W3=wcSaw.width, H3=wcSaw.height;
+  c3.clearRect(0,0,W3,H3);c3.fillStyle='#0f0f0e';c3.fillRect(0,0,W3,H3);
+  // Use the panel wave's sweepMax for the x-axis scale (rows for all fingers
+  // share this scale even if different waves have different sweeps — that
+  // shows the relative magnitudes truthfully).
+  const smPanel=sweepMaxFor(wPanel);
+  const sMidX=W3/2;
+  const posScale=(W3*0.38)/Math.max(0.01,Math.abs(smPanel)||0.3);
+
+  const activeFingers=[];
+  for(let i=0;i<S.n;i++) if(S.fingerActive[i]) activeFingers.push(i);
+  const nActive=activeFingers.length;
+
+  if(nActive>0){
+    const pad=12;
+    const rowH=Math.min(20,(H3-2*pad)/nActive);
+    const totalH=rowH*nActive;
+    const yStart=(H3-totalH)/2;
+    // Centre line
+    c3.beginPath();c3.moveTo(sMidX,0);c3.lineTo(sMidX,H3);
+    c3.strokeStyle='rgba(255,255,255,0.05)';c3.lineWidth=1;c3.stroke();
+
+    activeFingers.forEach((i,row)=>{
+      const yRow=yStart+row*rowH+rowH/2;
+      const isWatched=i===fi;
+      const fp=fingerPos(i,t);
+      const fw=wPanel;
+      const fpDir=dirFor(fw);
+      // Trail step in wave-phase space: 3% of one cycle, signed by this wave's dir.
+      const trailPhaseStep = 2*Math.PI*0.03 * fpDir;
+      let sv;
+      if(isObj){
+        // Object mode: show "slip" = α_anchor − α_grabbed (zero when not grabbing).
+        if(fp.contact && !isNaN(S.grabbedAlpha[i])){
+          let slip = fp.alpha_anchor - S.grabbedAlpha[i];
+          while(slip > Math.PI) slip -= 2*Math.PI;
+          while(slip < -Math.PI) slip += 2*Math.PI;
+          sv = slip;
+        } else {
+          sv = 0;
+        }
+      } else {
+        // Ring mode: slot-mapped sample. Idle fingers (no slot) sit at sv=0.
+        const ae = alphaEffForFinger(fw, i);
+        if(ae === null){
+          sv = 0;
+        } else {
+          sv = sawOffByThetaObj(fw, ae + fw.phase, fw.wavePhase);
+        }
+      }
+      const dotX=sMidX+sv*posScale;
+
+      c3.beginPath();c3.moveTo(pad,yRow);c3.lineTo(W3-pad,yRow);
+      c3.strokeStyle='rgba(255,255,255,0.03)';c3.lineWidth=1;c3.stroke();
+      c3.fillStyle=isWatched?rgba(WHITE,.6):rgba(WHITE,.18);
+      c3.font='7px monospace';c3.textAlign='right';c3.textBaseline='middle';
+      c3.fillText(i,pad-3,yRow);
+
+      // Trail (ring mode only) — skip for idle fingers (no slot)
+      if(!isObj){
+        const ae = alphaEffForFinger(fw, i);
+        if(ae !== null){
+          const trailSteps=20;
+          const xArg = ae + fw.phase;
+          for(let s=1;s<=trailSteps;s++){
+            const wpPast = fw.wavePhase - s*trailPhaseStep;
+            const psv = sawOffByThetaObj(fw, xArg, wpPast);
+            const px=sMidX+psv*posScale;
+            const al=(1-s/trailSteps)*(isWatched?.3:.12);
+            c3.beginPath();c3.arc(px,yRow,isWatched?2:1.5,0,2*Math.PI);
+            c3.fillStyle=rgba(fp.contact?TEAL:AMBER,al);c3.fill();
+          }
+        }
+      }
+      const dR=isWatched?4.5:3;
+      if(fp.contact){c3.beginPath();c3.arc(dotX,yRow,dR+3,0,2*Math.PI);c3.fillStyle=rgba(TEAL,.15);c3.fill();}
+      c3.beginPath();c3.arc(dotX,yRow,dR,0,2*Math.PI);
+      c3.fillStyle=isWatched?WHITE:(fp.contact?rgba(TEAL,.9):rgba(AMBER,.7));c3.fill();
+    });
+  }
+  c3.fillStyle=rgba(AMBER,.5);c3.font='8px monospace';c3.textAlign='left';c3.textBaseline='top';
+  c3.fillText(isObj?'slip (α − α_grabbed)':'tang. sweep',2,2);
+
+  // ── 4. Trajectory — unrolled (θ_obj, r) view of GUI ────────────────────
+  // X-axis: θ_obj from 0 to 2π (wrapped). Y-axis: radial position r.
+  // Surface curve forms the "floor". Each finger node lives at
+  //   x = thetaToX(θ_obj_contact), y = rToY4(r_contact).
+  // When in contact: node sits ON the surface curve.
+  // When retracted: node is ABOVE the curve, at r = surf + lift.
+  const c4 = wcSum.getContext('2d');
+  const W4 = wcSum.width, H4 = wcSum.height;
+  c4.clearRect(0,0,W4,H4); c4.fillStyle='#0f0f0e'; c4.fillRect(0,0,W4,H4);
+
+  // Y range: surface min to surface max + A (so retracted fingers fit)
+  const sMin = rMin - A*0.1;
+  const sMax = rMax + A*1.15;
+  const rToY4 = (r) => H4 - (r-sMin)/(sMax-sMin)*H4*0.9 - H4*0.05;
+
+  // Body fill: the annulus between outer surface and inner surface (if hole exists).
+  // For solid objects (no hole), inner radius is 0 so the fill goes from surface
+  // down to y=H4 as before.
+  const hasHoleNow = hasHole();
+  c4.beginPath();
+  c4.moveTo(0, H4);
+  for(let x=0;x<=W4;x++){
+    const r = surfaceR((x/W4)*2*Math.PI - sx);
+    c4.lineTo(x, rToY4(r));
+  }
+  c4.lineTo(W4, H4);
+  c4.closePath();
+  c4.fillStyle=rgba(AMBER,.05);c4.fill();
+  // "Cut out" the hole interior: re-fill the inner-surface arc back to y=H4 with
+  // panel background. This gives the visual sense of an annulus body.
+  if(hasHoleNow){
+    c4.beginPath();
+    c4.moveTo(0, H4);
+    for(let x=0;x<=W4;x++){
+      const r = surfaceRInner((x/W4)*2*Math.PI - sx);
+      c4.lineTo(x, rToY4(r));
+    }
+    c4.lineTo(W4, H4);
+    c4.closePath();
+    c4.fillStyle='#0f0f0e';c4.fill();
+  }
+
+  // Outer-surface curve
+  c4.beginPath();
+  for(let x=0;x<=W4;x++){
+    const r=surfaceR((x/W4)*2*Math.PI - sx);
+    x===0?c4.moveTo(x,rToY4(r)):c4.lineTo(x,rToY4(r));
+  }
+  c4.strokeStyle=rgba(AMBER,.6);c4.lineWidth=1.5;c4.stroke();
+
+  // Inner-surface curve (rose-coloured, matches inner-ring finger nodes)
+  if(hasHoleNow){
+    c4.beginPath();
+    for(let x=0;x<=W4;x++){
+      const r=surfaceRInner((x/W4)*2*Math.PI - sx);
+      x===0?c4.moveTo(x,rToY4(r)):c4.lineTo(x,rToY4(r));
+    }
+    c4.strokeStyle=rgba(ROSE,.6);c4.lineWidth=1.5;c4.stroke();
+  }
+
+  // "Sum" curve: surface + wave-lift, showing the radial extent at every panel
+  // angle. phaseOffset is included so the wave shifts when phase is tweaked
+  // (matching finger panel-positions, which also include phaseOffset).
+  // Note: this still draws the wave at uniform panel x; when fingers bunch
+  // under orbit, the wave doesn't compress with them. A "p-wave"-style
+  // compressed display is on the to-do list for the conveyor model.
+  c4.beginPath();
+  for(let x=0;x<=W4;x++){
+    const th=(x/W4)*2*Math.PI;
+    const surf=surfaceR(th - sx);
+    const w=panelWaveAtX(x, W4);
+    const lift = w>T ? A*(w-T)/Math.max(0.001, 1-Math.min(T,0.999)) : 0;
+    const y=rToY4(surf+lift);
+    x===0?c4.moveTo(x,y):c4.lineTo(x,y);
+  }
+  c4.strokeStyle=rgba(TEAL,.35);c4.lineWidth=1;c4.stroke();
+
+  // Finger nodes on the trajectory panel.
+  // Ring mode: node at θ_obj_anchor (matches wave phase); contact bar from anchor to swept contact.
+  // Object mode: node at α_target (where the finger actually is — grabbed material point
+  //   during contact, anchor projection during non-contact). Slip bar from α_anchor to α_target.
+  if(S.nodeMode!=='none'){
+    const fs=S.nodeMode==='all'?Array.from({length:S.n},(_,i)=>i):[fi];
+    fs.forEach(i=>{
+      if(!S.fingerActive[i]) return;
+      const fp = fingerPos(i,t);
+      // X coords on the panel
+      let nodeAngle, barFromAngle;
+      if(isObj){
+        nodeAngle = fp.alpha_target;
+        barFromAngle = fp.alpha_anchor;
+      } else {
+        nodeAngle = fp.theta_obj_anchor;
+        barFromAngle = fp.theta_obj_contact; // sweep end
+      }
+      const nodeX = thetaToX(nodeAngle, W4);
+      const barEndX = thetaToX(barFromAngle, W4);
+      // nodeY: place node ON the surface curve at nodeX (during contact), or
+      // lifted above the curve at nodeX (during retraction).
+      // Ring mode: surface at anchor angle + lift. Object mode: surface at α_target + lift.
+      // (In both cases, surface lookup is at the same angle as nodeX so the node
+      // sits on the visible surface curve when lift = 0.)
+      const nodeSurf = isObj ? fp.surf : fp.surf_at_anchor;
+      const nodeY = rToY4(nodeSurf + fp.lift);
+      const isW = i===fi;
+
+      // Bar on the surface curve showing the sweep/slip extent.
+      // Ring mode: between anchor and current contact (the tangential sweep).
+      // Object mode: between anchor projection and grabbed point (the carry/slip).
+      if(fp.contact){
+        const drawBar = (xa, xb) => {
+          if(xb < xa){ [xa, xb] = [xb, xa]; }
+          c4.beginPath();
+          const steps = Math.max(2, Math.floor(Math.abs(xb-xa)));
+          for(let s=0;s<=steps;s++){
+            const x = xa + (xb-xa)*(s/steps);
+            const th = (x/W4)*2*Math.PI;
+            const r = surfaceR(th - sx);
+            const y = rToY4(r);
+            s===0?c4.moveTo(x,y):c4.lineTo(x,y);
+          }
+          c4.strokeStyle=rgba(TEAL,isW?.9:.6);c4.lineWidth=isW?3:2;c4.stroke();
+        };
+        // Ring mode: bar from anchor to contact (sweep). Object mode: bar from
+        // anchor projection to grabbed point (slip).
+        const xa = isObj ? thetaToX(fp.alpha_anchor, W4) : thetaToX(fp.theta_obj_anchor, W4);
+        const xb = isObj ? thetaToX(fp.alpha_target, W4) : thetaToX(fp.theta_obj_contact, W4);
+        if(Math.abs(xb-xa) > W4/2){
+          if(xb > xa){ drawBar(xa, xb - W4); drawBar(0, xa); drawBar(xb, W4); }
+          else { drawBar(xa, W4); drawBar(0, xb); }
+        } else {
+          drawBar(xa, xb);
+        }
+        // Tick at the "from" end of the bar (anchor projection)
+        const surfY_at_anchor = rToY4(surfaceR((isObj?fp.alpha_anchor:fp.theta_obj_anchor) - (isObj?0:S.ballAngle)*0));
+        // Simpler — surfaceR expects body-frame α
+        const refAlpha = isObj ? fp.alpha_anchor : (fp.theta_obj_anchor - S.ballAngle);
+        const surfY_ref = rToY4(surfaceR(refAlpha));
+        c4.beginPath();c4.arc(xa, surfY_ref, 2, 0, 2*Math.PI);
+        c4.fillStyle=rgba(TEAL,isW?.6:.4);c4.fill();
+      }
+
+      // Node halo when in contact
+      if(fp.contact){
+        c4.beginPath();c4.arc(nodeX,nodeY,isW?7:5,0,2*Math.PI);
+        c4.fillStyle=rgba(TEAL,isW?.2:.1);c4.fill();
+      }
+      // Node itself
+      c4.beginPath();c4.arc(nodeX,nodeY,isW?4.5:3,0,2*Math.PI);
+      c4.fillStyle=isW?WHITE:(fp.contact?rgba(TEAL,.95):rgba(TEAL,.45));c4.fill();
+      if(S.n<=16){
+        c4.fillStyle=rgba(WHITE,isW?.75:.25);
+        c4.font='7px monospace';c4.textAlign='center';c4.textBaseline='bottom';
+        c4.fillText(i,nodeX,nodeY-6);
+      }
+    });
+  }
+
+  c4.fillStyle=rgba(TEAL,.5);c4.font='8px monospace';c4.textAlign='left';c4.textBaseline='top';
+  c4.fillText('trajectory (unrolled)',2,2);
+  c4.fillStyle=rgba(AMBER,.4);c4.textAlign='right';
+  c4.fillText(`${axisLabel} →`,W4-2,2);
+
+  drawOrbitPanel(t);
+}
+
+// ── 6. Orbit wave panel (Cartesian Lissajous trace) ─────────────────────────
+function drawOrbitPanel(t){
+  const c = document.getElementById('wcOrbit');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  const W6=c.width, H6=c.height;
+  ctx.clearRect(0,0,W6,H6); ctx.fillStyle='#0f0f0e'; ctx.fillRect(0,0,W6,H6);
+
+  // Show orbit in 2D: x ↔ horizontal, y ↔ vertical (matches canvas)
+  // Use SIZE-based scaling but fit into panel
+  const maxOrb = Math.max(0.005, S.orbAx + Math.abs(S.orbX0), S.orbAy + Math.abs(S.orbY0));
+  const padPx = 8;
+  const scale = Math.min((W6-2*padPx)/(2*maxOrb*SIZE), (H6-2*padPx)/(2*maxOrb*SIZE));
+  const midX=W6/2, midY=H6/2;
+  const toPx = (dx,dy) => ({ x: midX + dx*scale, y: midY + dy*scale });
+
+  // Axes
+  ctx.beginPath();ctx.moveTo(padPx,midY);ctx.lineTo(W6-padPx,midY);
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(midX,padPx);ctx.lineTo(midX,H6-padPx);
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;ctx.stroke();
+
+  // Static offset marker
+  const stat = toPx(S.orbX0*SIZE, S.orbY0*SIZE);
+  ctx.beginPath();ctx.arc(stat.x,stat.y,2,0,2*Math.PI);ctx.fillStyle=rgba(AMBER,.35);ctx.fill();
+
+  // Lissajous trace over one period (or just static dot if no oscillation)
+  const oscillating = S.orbAx>0.001 || S.orbAy>0.001;
+  if(oscillating && S.orbOmega>0.005){
+    const period = 2*Math.PI/S.orbOmega;
+    const N=120;
+    ctx.beginPath();
+    for(let s=0;s<=N;s++){
+      const tau=(s/N)*period;
+      const o=orbitOffset(tau);
+      const p=toPx(o.dx,o.dy);
+      s===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle=rgba('#9ec5e8',.45);ctx.lineWidth=1.2;ctx.stroke();
+  } else if(oscillating){
+    // Degenerate (ω=0 but Ax/Ay set): just static-equivalent
+  }
+
+  // Current centroid position
+  const oNow=orbitOffset(t);
+  const pNow=toPx(oNow.dx,oNow.dy);
+  ctx.beginPath();ctx.arc(pNow.x,pNow.y,3.5,0,2*Math.PI);
+  ctx.fillStyle=rgba('#9ec5e8',.95);ctx.fill();
+  // Velocity arrow
+  if(oscillating && S.orbOmega>0.005){
+    const vScale=0.5/(S.orbOmega||1);
+    const vx=oNow.vx*vScale*scale, vy=oNow.vy*vScale*scale;
+    const vLen=Math.hypot(vx,vy);
+    if(vLen>1){
+      const ax=pNow.x+vx, ay=pNow.y+vy;
+      ctx.beginPath();ctx.moveTo(pNow.x,pNow.y);ctx.lineTo(ax,ay);
+      ctx.strokeStyle=rgba('#9ec5e8',.6);ctx.lineWidth=1;ctx.stroke();
+    }
+  }
+
+  ctx.fillStyle=rgba('#9ec5e8',.5);ctx.font='8px monospace';ctx.textAlign='left';ctx.textBaseline='top';
+  ctx.fillText('Δ(t) — orbit',2,2);
+  ctx.fillStyle=rgba(AMBER,.45);ctx.textAlign='right';
+  ctx.fillText('(x→, y↓)',W6-2,2);
+}
+
+// ─── Gait strip ───────────────────────────────────────────────────────────────
+const GAIT_STEPS=280;let gaitBuf=[];
+function updateGait(t){
+  gaitBuf.push(Array.from({length:S.n},(_,i)=>{
+    if(!S.fingerActive[i])return false;
+    return fingerPos(i,t).contact;
+  }));
+  if(gaitBuf.length>GAIT_STEPS)gaitBuf.shift();
+}
+function drawGait(){
+  const GW=gaitCanvas.width,GH=gaitCanvas.height;
+  gc.fillStyle='#0f0f0e';gc.fillRect(0,0,GW,GH);
+  if(!gaitBuf.length)return;
+  const rH=GH/S.n,cW=GW/GAIT_STEPS;
+  for(let ti=0;ti<gaitBuf.length;ti++){
+    const x=ti*cW;
+    for(let i=0;i<Math.min(S.n,gaitBuf[ti].length);i++){
+      if(gaitBuf[ti][i]){gc.fillStyle=rgba(TEAL,.65);gc.fillRect(x,i*rH+.5,cW+.5,rH-1);}
+    }
+  }
+  gc.font='8px monospace';gc.textBaseline='middle';gc.fillStyle='rgba(90,86,82,0.75)';
+  const ev=S.n<=8?1:S.n<=16?2:4;
+  for(let i=0;i<S.n;i+=ev){gc.textAlign='left';gc.fillText(i,2,i*rH+rH/2);}
+}
+
+function updateEqn(){
+  const v = motionVel();
+  const omegaSum = bodyOmega();
+  const lines = S.primitives.map((p, pi) => {
+    const om = waveOmega(p), fr = waveF(p), lam = waveLambda(p);
+    const c_eff = waveC(p);
+    const sweepArc = p.dc * lam;
+    const manKind = (p.manifoldSpec && p.manifoldSpec.kind) || 'bodyCircle';
+    const flowsStr = p.flows.map(f => {
+      if(f.kind === 'bodyRotation')      return `rot(ω=${flowRate(p,f).omega.toFixed(3)})`;
+      if(f.kind === 'externalRotation')  return `orb(Ω=${f.omega.toFixed(3)}, c=(${f.cx.toFixed(2)},${f.cy.toFixed(2)}))`;
+      if(f.kind === 'translation')       return `tr(V=(${f.vx.toFixed(3)},${f.vy.toFixed(3)}))`;
+      return f.kind;
+    }).join(', ');
+    const col = WAVE_COLORS[pi % WAVE_COLORS.length];
+    const star = pi === S.activePrimitive ? '★' : ' ';
+    return `<span style="color:${col}">${star} P${pi+1} ${p.name}[${manKind}]</span> k=${p.k} c=${c_eff.toFixed(3)}${p.cLock!=='free'?` 🔒${p.cLock}`:''} dc=${p.dc.toFixed(2)} amp=${p.amp.toFixed(2)} n<sub>w</sub>=${p.nWave} → ω=${om.toFixed(2)}, λ=${lam.toFixed(3)} | flows: ${flowsStr || '(none)'}`;
+  });
+  document.getElementById('eqnVals').innerHTML =
+    `n=${S.n} | primitives=${S.primitives.length} | ω<sub>body</sub>=${(omegaSum/(2*Math.PI)).toFixed(3)} turns/s, v<sub>cm</sub>=(${v.vx.toFixed(3)}, ${v.vy.toFixed(3)}) SIZE/s | shape=${S.shape}`+
+    `<br>` + lines.join('<br>');
+}
+
+// ─── Finger toggle row ────────────────────────────────────────────────────────
+// v11: every finger participates in every primitive (OR composition). Click to
+// toggle active/inactive globally.
+const WAVE_COLORS = ['#4ecdc4', '#e07a7a', '#9ec5e8', '#f7c59f', '#b39ddb', '#aed581'];
+function buildFingerRow(){
+  const row=document.getElementById('fingerRow');row.innerHTML='';
+  const col = WAVE_COLORS[0];
+  for(let i=0;i<S.n;i++){
+    const btn=document.createElement('div');
+    btn.className='ftog'+(S.fingerActive[i]?'':' off');
+    btn.style.borderColor = `${col}88`;
+    btn.style.background  = S.fingerActive[i] ? `${col}22` : 'transparent';
+    btn.style.color       = S.fingerActive[i] ? `${col}cc` : `${col}55`;
+    btn.innerHTML = `${i}`;
+    btn.title = 'click to toggle';
+    btn.addEventListener('click', ()=>{
+      S.fingerActive[i] = !S.fingerActive[i];
+      btn.classList.toggle('off', !S.fingerActive[i]);
+      btn.style.background = S.fingerActive[i] ? `${col}22` : 'transparent';
+      btn.style.color      = S.fingerActive[i] ? `${col}cc` : `${col}55`;
+      gaitBuf=[];
+    });
+    row.appendChild(btn);
+  }
+}
+
+// Per-finger prior contact state (for transition detection in object mode)
+const _prevContact = new Array(24).fill(false);
+
+// ─── Animation loop ───────────────────────────────────────────────────────────
+const SLOT_PRES_TAU = 0.12;  // seconds; lift smoothing time constant on slot enter/exit
+
+// One physics step (no rendering). Tests bypass loop() entirely and call this
+// directly with a fixed dt.
+function simulationStep(dt){
+  ensureSlotPres();
+  updateWaveSlots();
+  {
+    const a = Math.min(1, dt / SLOT_PRES_TAU);
+    for(let pi=0; pi<S.primitives.length; pi++){
+      const p = S.primitives[pi];
+      const pres = S.fingerSlotPres2D[pi];
+      for(let i=0; i<S.n; i++){
+        const target = (S.fingerActive[i] && alphaEffForFinger(p, i) !== null) ? 1 : 0;
+        pres[i] += a * (target - pres[i]);
+      }
+    }
+  }
+  S.time += dt;
+  for(const p of S.primitives){
+    p.wavePhase += dt * waveOmega(p);
+  }
+  S.ballAngle += dt * bodyOmega();
+  const v = motionVel(S.time);
+  S.centroidX += dt * v.vx * SIZE;
+  S.centroidY += dt * v.vy * SIZE;
+  // Grab/release state machine (object mode only). Contact = OR over primitives.
+  if(S.waveFrame === 'object'){
+    for(let i=0;i<S.n;i++){
+      if(!S.fingerActive[i]){
+        _prevContact[i] = false;
+        S.grabbedAlpha[i] = NaN;
+        S.releasedAlpha[i] = NaN;
+        continue;
+      }
+      const cx = SIZE/2, cy = SIZE/2;
+      const anchor = fingerAnchor(i, cx, cy, 1);
+      const obj = objectCentre(S.time, cx, cy, 1);
+      const af = fingerObjFrame(anchor.x, anchor.y, obj.x, obj.y);
+      const alpha_anchor = af.theta_obj - S.ballAngle;
+      let inContact = false;
+      for(const p of S.primitives){
+        const r = primContactAt(p, i, anchor, alpha_anchor);
+        if(r.contact){ inContact = true; break; }
+      }
+      if(inContact && !_prevContact[i]){
+        S.grabbedAlpha[i] = alpha_anchor;
+        S.releasedAlpha[i] = NaN;
+      } else if(!inContact && _prevContact[i]){
+        if(!isNaN(S.grabbedAlpha[i])){
+          S.releasedAlpha[i] = S.grabbedAlpha[i];
+        }
+        S.grabbedAlpha[i] = NaN;
+      }
+      _prevContact[i] = inContact;
+    }
+  } else {
+    for(let i=0;i<S.n;i++){
+      S.grabbedAlpha[i] = NaN;
+      S.releasedAlpha[i] = NaN;
+    }
+  }
+}
+
+let lastTs=null;
+function loop(ts){
+  if(lastTs===null)lastTs=ts;
+  const dt=Math.min((ts-lastTs)/1000,.05);
+  lastTs=ts;
+  // Slot machinery + presence smoothing always runs (even when paused) so the
+  // user sees primitive edits reflected immediately. simulationStep also runs
+  // them but that's idempotent.
+  ensureSlotPres();
+  updateWaveSlots();
+  {
+    const a = Math.min(1, dt / SLOT_PRES_TAU);
+    for(let pi=0; pi<S.primitives.length; pi++){
+      const p = S.primitives[pi];
+      const pres = S.fingerSlotPres2D[pi];
+      for(let i=0; i<S.n; i++){
+        const target = (S.fingerActive[i] && alphaEffForFinger(p, i) !== null) ? 1 : 0;
+        pres[i] += a * (target - pres[i]);
+      }
+    }
+  }
+  if(S.playing){
+    simulationStep(dt);
+    if(S.revealMode){
+      for(let i=0;i<S.n;i++){
+        if(!S.fingerActive[i]) continue;
+        const fp=fingerPos(i,S.time);
+        const objFA = fp.theta_obj_contact - S.ballAngle;
+        if(fp.contact){
+          // Record the true surface measurement at this bin. We feed paintContact
+          // the finger's CURRENT commanded radius (fp.surf) as the seed for fresh
+          // bins so the visible estimate is continuous as the contact arc sweeps
+          // into new territory.
+          //
+          // BULGED-OUT CASE: if the true surface is at a LARGER radius than the
+          // current displayed estimate, the finger would have physically collided
+          // with the bulge before reaching the predicted position. We treat this
+          // as an instantaneous collision: the estimate at this bin (and nearby
+          // bins, via the paint kernel) snaps UP to the measurement immediately,
+          // rather than waiting for palpateStep to gradually raise it.
+          const trueSurf = objR(objFA);
+          const currentEst = estimatedSurface(objFA);
+          paintContact(objFA, trueSurf, fp.surf, dt);
+          if(trueSurf > currentEst){
+            snapEstimateUpTo(objFA, trueSurf);
+          }
+        }
+      }
+      // Once per frame: descend the estimate toward measurements at palpation speed
+      palpateStep(dt);
+      // Light smoothing pass: average each bin with its neighbours to reduce craggy
+      // appearance. Only smooths bins with measurements, so unexplored regions stay
+      // at their default-circle assumption.
+      smoothEstimate();
+      const el=document.getElementById('revealCoverage');
+      if(el) el.textContent=Math.round(revealCoverage()*100)+'% revealed';
+    }
+    updateGait(S.time);
+  }
+  // Drawing runs every frame so paused parameter changes (phaseOffset slider,
+  // nWave, centroid drag) reflect immediately. Slot occupancy + slot-presence
+  // were already moved outside the playing gate above; the rendering can read
+  // their up-to-date values.
+  drawRing(S.time);
+  drawGait();
+  drawWavePanels(S.time);
+  updateEqn();
+  requestAnimationFrame(loop);
+}
+
+// ─── Controls ────────────────────────────────────────────────────────────────
+// Wrap every range slider in a flex row containing a small typed numeric input
+// (mirrors slider's min/max/step). The number input commits on blur/Enter so
+// typing isn't constantly fired; the slider commits on input as before. Both
+// are kept in sync via applyValue() in bindSlider.
+function enrichSliders(){
+  document.querySelectorAll('.ctrl input[type=range]').forEach(rng=>{
+    if(!rng.id || !rng.id.endsWith('Slider')) return;
+    const numId = rng.id.replace(/Slider$/,'Num');
+    if(document.getElementById(numId)) return;
+    const row = document.createElement('div');
+    row.className = 'ctrlRow';
+    rng.parentNode.insertBefore(row, rng);
+    row.appendChild(rng);
+    const num = document.createElement('input');
+    num.type='number'; num.id=numId; num.className='numIn';
+    num.min=rng.min; num.max=rng.max; num.step=rng.step; num.value=rng.value;
+    row.appendChild(num);
+  });
+}
+enrichSliders();
+
+function bindSlider(id,valId,key,parse,fmt,onchange){
+  const el=document.getElementById(id);
+  const valEl = valId ? document.getElementById(valId) : null;
+  const numEl = document.getElementById(id.replace(/Slider$/,'Num'));
+  const mn = parseFloat(el.min), mx = parseFloat(el.max);
+  const clampNum = v => Number.isFinite(v) ? Math.max(mn, Math.min(mx, v)) : S[key];
+  const render = v => fmt ? fmt(v) : String(v);
+  function applyValue(raw){
+    const parsed = parse(raw);
+    const v = clampNum(parsed);
+    S[key] = v;
+    if(el.value !== String(v)) el.value = v;
+    if(numEl && document.activeElement !== numEl) numEl.value = v;
+    if(valEl) valEl.textContent = render(v);
+    if(onchange) onchange();
+    gaitBuf=[];
+  }
+  el.addEventListener('input', () => applyValue(el.value));
+  if(numEl){
+    // Commit on change (blur / Enter) — keeps typing from firing per keystroke.
+    numEl.addEventListener('change', () => applyValue(numEl.value));
+    // But sync the displayed numeric input back to the clamped value on blur.
+    numEl.addEventListener('blur', () => { numEl.value = S[key]; });
+  }
+}
+const f2=v=>v.toFixed(2);
+bindSlider('nSlider','nVal','n',v=>parseInt(v),null,()=>{ buildFingerRow(); });
+
+const _syncBtn = document.getElementById('syncOrbitBtn');
+if(_syncBtn) _syncBtn.style.display = 'none';
+
+bindSlider('ballRSlider','ballRVal','ballRFrac',v=>parseFloat(v),f2,()=>{if(S.revealMode)resetReveal();});
+bindSlider('bumpESlider','bumpEVal','bumpE',v=>parseFloat(v),f2);
+bindSlider('bumpMSlider','bumpMVal','bumpM',v=>parseInt(v));
+bindSlider('innerRSlider','innerRVal','innerR',v=>parseFloat(v),f2,()=>{ if(S.revealMode) resetReveal(); });
+bindSlider('ringRInnerSlider','ringRInnerVal','ringRInner',v=>parseFloat(v),f2);
+bindSlider('reachSlider','reachVal','fingerReach',v=>parseFloat(v),v=>v.toFixed(3));
+bindSlider('palpSlider','palpVal','palpationSpeed',v=>parseFloat(v),f2);
+bindSlider('orbX0Slider','orbX0Val','orbX0',v=>parseFloat(v),v=>v.toFixed(3));
+bindSlider('orbY0Slider','orbY0Val','orbY0',v=>parseFloat(v),v=>v.toFixed(3));
+bindSlider('orbAxSlider','orbAxVal','orbAx',v=>parseFloat(v),v=>v.toFixed(3));
+bindSlider('orbAySlider','orbAyVal','orbAy',v=>parseFloat(v),v=>v.toFixed(3));
+bindSlider('orbWSlider','orbWVal','orbOmega',v=>parseFloat(v),f2);
+bindSlider('orbPhiSlider','orbPhiVal','orbPhi',v=>parseFloat(v),f2);
+
+document.getElementById('posReset').addEventListener('click', () => {
+  S.centroidX = 0; S.centroidY = 0; S.ballAngle = 0;
+  for(let i=0;i<S.n;i++){ S.grabbedAlpha[i] = NaN; S.releasedAlpha[i] = NaN; }
+  for(let i=0;i<_prevContact.length;i++) _prevContact[i] = false;
+  gaitBuf = [];
+});
+document.getElementById('zoomIn').addEventListener('click',()=>{S.zoom=Math.min(4,S.zoom*1.25);});
+document.getElementById('zoomOut').addEventListener('click',()=>{S.zoom=Math.max(0.25,S.zoom/1.25);});
+function setSliderValue(sliderId, valId, value, fmtStr){
+  const el = document.getElementById(sliderId);
+  if(el) el.value = value;
+  const num = document.getElementById(sliderId.replace(/Slider$/,'Num'));
+  if(num) num.value = value;
+  if(valId){ const v = document.getElementById(valId); if(v) v.textContent = fmtStr || String(value); }
+}
+document.getElementById('zoomReset').addEventListener('click',()=>{
+  S.zoom=1;
+  ['orbX0','orbY0','orbAx','orbAy'].forEach(k=>S[k]=0);
+  setSliderValue('orbX0Slider','orbX0Val',0,'0.000');
+  setSliderValue('orbY0Slider','orbY0Val',0,'0.000');
+  setSliderValue('orbAxSlider','orbAxVal',0,'0.000');
+  setSliderValue('orbAySlider','orbAyVal',0,'0.000');
+});
+
+document.getElementById('nSlider').addEventListener('input', () => {
+  for(const p of S.primitives){ if(p.nWave > S.n) p.nWave = S.n; }
+  ensureSlotPres();
+  buildFingerRow();
+  buildWavePanes();
+});
+
+function segBind(ids,vals,key){ids.forEach((id,i)=>document.getElementById(id).addEventListener('click',()=>{S[key]=vals[i];ids.forEach(b=>document.getElementById(b).classList.remove('on'));document.getElementById(id).classList.add('on');gaitBuf=[];}));}
+
+// ─── v11 multi-primitive UI ─────────────────────────────────────────────────
+function clampDc(v){ return Math.max(0.05, Math.min(0.95, v)); }
+function fmt3(v){ return v.toFixed(3); }
+function fmtTurns(rad){ return (rad/(2*Math.PI)).toFixed(3); }
+
+function bindKnob(slider, num, valLabel, obj, key, parse, fmt, onChange){
+  if(!slider) return;
+  const mn = parseFloat(slider.min), mx = parseFloat(slider.max);
+  const apply = raw => {
+    let r = parseFloat(raw);
+    if(!Number.isFinite(r)) return;
+    r = Math.max(mn, Math.min(mx, r));
+    const v = parse ? parse(r) : r;
+    obj[key] = v;
+    if(num && document.activeElement !== num) num.value = (fmt ? fmt(v) : v);
+    if(valLabel) valLabel.textContent = (fmt ? fmt(v) : String(v));
+    if(onChange) onChange();
+    gaitBuf = [];
+  };
+  slider.addEventListener('input', () => apply(slider.value));
+  if(num) num.addEventListener('change', () => apply(num.value));
+}
+
+function manifoldSpecFromKind(kind){
+  if(kind === 'worldLine')   return { kind: 'worldLine', dirX: 1, dirY: 0 };
+  if(kind === 'orbitCircle') return { kind: 'orbitCircle', R: Math.max(0.05, S.ringROuter - 0.05), centreX: 0, centreY: 0 };
+  return { kind: 'bodyCircle' };
+}
+
+function addPrimitivePreset(name){
+  const R = Math.max(0.05, S.ringROuter - 0.05);
+  const W = 0.5;
+  let p;
+  if(name === 'rotation'){
+    p = makePrimitive({ name: 'rotation', manifoldSpec: { kind: 'bodyCircle' }, flows: [{ kind: 'bodyRotation', omega: 0.5 }] });
+  } else if(name === 'translateX'){
+    p = makePrimitive({ name: 'translate x', manifoldSpec: { kind: 'worldLine', dirX: 1, dirY: 0 }, flows: [{ kind: 'translation', vx: 0.05, vy: 0 }] });
+  } else if(name === 'translateY'){
+    p = makePrimitive({ name: 'translate y', manifoldSpec: { kind: 'worldLine', dirX: 0, dirY: 1 }, flows: [{ kind: 'translation', vx: 0, vy: 0.05 }] });
+  } else if(name === 'orbit'){
+    p = makePrimitive({ name: 'orbit', manifoldSpec: { kind: 'orbitCircle', R, centreX: 0, centreY: 0 }, flows: [{ kind: 'externalRotation', omega: W, cx: 0, cy: 0 }] });
+    if(Math.hypot(S.centroidX, S.centroidY) < 1e-3){ S.centroidX = R * SIZE; S.centroidY = 0; }
+  } else if(name === 'rollingOrbit'){
+    p = makePrimitive({
+      name: 'rolling orbit', manifoldSpec: { kind: 'bodyCircle' }, cLock: 'tracks-orbit',
+      flows: [
+        { kind: 'externalRotation', omega: W, cx: 0, cy: 0 },
+        { kind: 'bodyRotation', omega: 0, lock: 'rolling-with-orbit' },
+      ],
+    });
+    if(Math.hypot(S.centroidX, S.centroidY) < 1e-3){ S.centroidX = R * SIZE; S.centroidY = 0; S.ballAngle = 0; }
+  } else {
+    p = makePrimitive({ name });
+  }
+  S.primitives.push(p);
+  S.activePrimitive = S.primitives.length - 1;
+  ensureSlotPres();
+  for(let i=0;i<S.n;i++){ S.grabbedAlpha[i] = NaN; S.releasedAlpha[i] = NaN; }
+  for(let i=0;i<_prevContact.length;i++) _prevContact[i] = false;
+  buildWavePanes();
+  return p;
+}
+
+function removePrimitive(idx){
+  if(idx < 0 || idx >= S.primitives.length) return;
+  S.primitives.splice(idx, 1);
+  if(S.activePrimitive >= S.primitives.length) S.activePrimitive = Math.max(0, S.primitives.length - 1);
+  ensureSlotPres();
+  buildWavePanes();
+  gaitBuf = [];
+}
+
+function cLockOptions(p){
+  const opts = ['free'];
+  if(p.flows.some(f => f.kind === 'bodyRotation'))    opts.push('world-frame');
+  if(p.flows.some(f => f.kind === 'externalRotation')) opts.push('tracks-orbit');
+  return opts;
+}
+function flowLockOptions(p, flow){
+  const opts = ['free'];
+  if(flow.kind === 'bodyRotation' && p.flows.some(f => f.kind === 'externalRotation')){
+    opts.push('rolling-with-orbit');
+  }
+  return opts;
+}
+
+function buildWavePanes(){
+  const container = document.getElementById('wavePanesContainer');
+  if(!container) return;
+  container.innerHTML = '';
+  const presets = document.createElement('div');
+  presets.style.cssText = 'grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px;align-items:center';
+  presets.innerHTML = `
+    <span style="font-size:9px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase">+ primitive</span>
+    <button class="addWaveBtn" data-add="rotation">rotation</button>
+    <button class="addWaveBtn" data-add="translateX">translate x</button>
+    <button class="addWaveBtn" data-add="translateY">translate y</button>
+    <button class="addWaveBtn" data-add="orbit">orbit</button>
+    <button class="addWaveBtn" data-add="rollingOrbit">rolling orbit</button>
+  `;
+  presets.querySelectorAll('button[data-add]').forEach(b => {
+    b.addEventListener('click', () => addPrimitivePreset(b.dataset.add));
+  });
+  container.appendChild(presets);
+  S.primitives.forEach((p, pi) => buildPrimitivePane(container, p, pi));
+}
+
+function buildPrimitivePane(container, p, pi){
+  const col = WAVE_COLORS[pi % WAVE_COLORS.length];
+  const pane = document.createElement('div');
+  pane.className = 'wavePane' + (pi === S.activePrimitive ? ' panelSel' : '');
+  pane.style.borderLeftColor = col;
+  const mfKind = (p.manifoldSpec && p.manifoldSpec.kind) || 'bodyCircle';
+  const hdr = document.createElement('div');
+  hdr.className = 'waveHeader';
+  hdr.innerHTML = `
+    <span class="waveLabel" style="color:${col}">${p.name} <span style="font-size:8px;color:var(--muted);text-transform:none;letter-spacing:0">primitive ${pi+1}</span></span>
+    <select class="surfSel" data-role="manifold">
+      <option value="bodyCircle"${mfKind==='bodyCircle'?' selected':''}>circle on body</option>
+      <option value="worldLine"${mfKind==='worldLine'?' selected':''}>world line</option>
+      <option value="orbitCircle"${mfKind==='orbitCircle'?' selected':''}>orbit circle</option>
+    </select>
+    <select class="surfSel" data-role="surface">
+      <option value="outer"${p.surface==='outer'?' selected':''}>outer</option>
+      <option value="inner"${p.surface==='inner'?' selected':''}>inner</option>
+    </select>
+    <button class="selectPanelBtn${pi===S.activePrimitive?' on':''}" data-role="select-panel">panel</button>
+    <button class="removeWaveBtn" data-role="remove">× remove</button>
+  `;
+  pane.appendChild(hdr);
+
+  const wgrid = document.createElement('div');
+  wgrid.className = 'waveControls';
+  const cOptHtml = cLockOptions(p).map(o => `<option value="${o}"${p.cLock===o?' selected':''}>${o}</option>`).join('');
+  wgrid.innerHTML = `
+    <div class="ctrl"><label>k <em data-v="k">${p.k}</em></label><input type="range" data-knob="k" min="1" max="6" step="1" value="${p.k}"></div>
+    <div class="ctrl"><label title="phase speed along manifold">c <em data-v="c">${p.c.toFixed(3)}</em></label><input type="range" data-knob="c" min="-1.5" max="1.5" step="0.005" value="${p.c}"><select data-knob="cLock" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:monospace;font-size:9px;padding:1px 3px;border-radius:3px;margin-top:2px">${cOptHtml}</select></div>
+    <div class="ctrl"><label>dc <em data-v="dc">${p.dc.toFixed(2)}</em></label><input type="range" data-knob="dc" min="0.05" max="0.95" step="0.01" value="${p.dc}"></div>
+    <div class="ctrl"><label>amp <em data-v="amp">${p.amp.toFixed(2)}</em></label><input type="range" data-knob="amp" min="0.02" max="0.25" step="0.01" value="${p.amp}"></div>
+    <div class="ctrl"><label>phase (turns) <em data-v="phase">${fmtTurns(p.phase)}</em></label><input type="range" data-knob="phase" min="-0.5" max="0.5" step="0.005" value="${fmtTurns(p.phase)}"></div>
+    <div class="ctrl"><label>n<sub>w</sub> <em data-v="nWave">${p.nWave}</em></label><input type="range" data-knob="nWave" min="1" max="${S.n}" step="1" value="${p.nWave}"></div>
+  `;
+  pane.appendChild(wgrid);
+
+  const flowsWrap = document.createElement('div');
+  flowsWrap.style.cssText = 'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.05)';
+  flowsWrap.innerHTML = `<div style="font-size:9px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px">flows</div>`;
+  p.flows.forEach((flow, fi) => flowsWrap.appendChild(buildFlowRow(p, flow, fi)));
+  const addFlow = document.createElement('div');
+  addFlow.style.cssText = 'margin-top:5px;display:flex;gap:5px;align-items:center';
+  addFlow.innerHTML = `
+    <select data-role="add-flow" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:monospace;font-size:10px;padding:2px 5px;border-radius:4px">
+      <option value="">+ add flow…</option>
+      <option value="bodyRotation">body rotation</option>
+      <option value="translation">translation</option>
+      <option value="externalRotation">external rotation (orbit)</option>
+    </select>
+  `;
+  flowsWrap.appendChild(addFlow);
+  pane.appendChild(flowsWrap);
+  container.appendChild(pane);
+
+  enrichSliders();
+
+  const wireKnob = (key, parse, fmt) => {
+    const sl = pane.querySelector(`input[data-knob="${key}"]`);
+    if(!sl) return;
+    const nm = sl.parentNode.querySelector('input[type=number]');
+    const vl = pane.querySelector(`[data-v="${key}"]`);
+    bindKnob(sl, nm, vl, p, key, parse, fmt, () => {});
+  };
+  wireKnob('k',     v=>parseInt(v),   null);
+  wireKnob('c',     v=>parseFloat(v), fmt3);
+  wireKnob('dc',    v=>parseFloat(v), v=>v.toFixed(2));
+  wireKnob('amp',   v=>parseFloat(v), v=>v.toFixed(2));
+  wireKnob('phase', v=>parseFloat(v)*2*Math.PI, v=>fmtTurns(v));
+  wireKnob('nWave', v=>parseInt(v),   null);
+
+  const cLockEl = pane.querySelector('select[data-knob="cLock"]');
+  if(cLockEl){
+    cLockEl.addEventListener('change', () => {
+      p.cLock = cLockEl.value;
+      const cSl = pane.querySelector('input[data-knob="c"]');
+      const cNm = cSl && cSl.parentNode.querySelector('input[type=number]');
+      const disabled = p.cLock !== 'free';
+      if(cSl) cSl.disabled = disabled;
+      if(cNm) cNm.disabled = disabled;
+      gaitBuf = [];
+    });
+    const cSl = pane.querySelector('input[data-knob="c"]');
+    const cNm = cSl && cSl.parentNode.querySelector('input[type=number]');
+    if(cSl) cSl.disabled = p.cLock !== 'free';
+    if(cNm) cNm.disabled = p.cLock !== 'free';
+  }
+
+  hdr.querySelector('select[data-role="manifold"]').addEventListener('change', e => {
+    setPrimitiveManifold(p, manifoldSpecFromKind(e.target.value));
+    buildWavePanes();
+    gaitBuf = [];
+  });
+  hdr.querySelector('select[data-role="surface"]').addEventListener('change', e => {
+    p.surface = e.target.value;
+    buildFingerRow();
+    gaitBuf = [];
+  });
+  hdr.querySelector('button[data-role="select-panel"]').addEventListener('click', () => {
+    S.activePrimitive = pi;
+    buildWavePanes();
+  });
+  hdr.querySelector('button[data-role="remove"]').addEventListener('click', () => removePrimitive(pi));
+
+  addFlow.querySelector('select[data-role="add-flow"]').addEventListener('change', e => {
+    const kind = e.target.value;
+    if(!kind) return;
+    p.flows.push(makeFlow(kind));
+    buildWavePanes();
+  });
+}
+
+function buildFlowRow(p, flow, fi){
+  const row = document.createElement('div');
+  row.style.cssText = 'padding:4px 6px;margin:3px 0;background:rgba(255,255,255,0.025);border-radius:4px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;align-items:end';
+  const lockOpts = flowLockOptions(p, flow).map(o => `<option value="${o}"${flow.lock===o?' selected':''}>${o}</option>`).join('');
+  if(flow.kind === 'bodyRotation'){
+    row.innerHTML = `
+      <div class="ctrl" style="grid-column:span 2">
+        <label style="font-size:9.5px">${fi+1}. body rotation ω <em data-v="omega">${(flowRate(p,flow).omega).toFixed(3)}</em></label>
+        <input type="range" data-fknob="omega" min="-3" max="3" step="0.01" value="${flow.omega}"${flow.lock!=='free'?' disabled':''}>
+        <select data-fknob="lock" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:monospace;font-size:9px;padding:1px 3px;border-radius:3px;margin-top:2px">${lockOpts}</select>
+      </div>
+      <button data-role="rmflow" style="background:rgba(224,122,122,0.15);border:1px solid rgba(224,122,122,0.4);color:var(--rose);font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;height:22px">×</button>
+    `;
+  } else if(flow.kind === 'translation'){
+    row.innerHTML = `
+      <div class="ctrl"><label style="font-size:9.5px">${fi+1}. translation Vx <em data-v="vx">${flow.vx.toFixed(3)}</em></label><input type="range" data-fknob="vx" min="-0.3" max="0.3" step="0.005" value="${flow.vx}"></div>
+      <div class="ctrl"><label style="font-size:9.5px">Vy <em data-v="vy">${flow.vy.toFixed(3)}</em></label><input type="range" data-fknob="vy" min="-0.3" max="0.3" step="0.005" value="${flow.vy}"></div>
+      <button data-role="rmflow" style="background:rgba(224,122,122,0.15);border:1px solid rgba(224,122,122,0.4);color:var(--rose);font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;height:22px">×</button>
+    `;
+  } else if(flow.kind === 'externalRotation'){
+    row.innerHTML = `
+      <div class="ctrl"><label style="font-size:9.5px">${fi+1}. external rotation Ω <em data-v="omega">${flow.omega.toFixed(3)}</em></label><input type="range" data-fknob="omega" min="-2" max="2" step="0.01" value="${flow.omega}"></div>
+      <div class="ctrl"><label style="font-size:9.5px">centre x <em data-v="cx">${flow.cx.toFixed(3)}</em></label><input type="range" data-fknob="cx" min="-0.4" max="0.4" step="0.005" value="${flow.cx}"></div>
+      <div class="ctrl"><label style="font-size:9.5px">centre y <em data-v="cy">${flow.cy.toFixed(3)}</em></label><input type="range" data-fknob="cy" min="-0.4" max="0.4" step="0.005" value="${flow.cy}"></div>
+      <button data-role="rmflow" style="background:rgba(224,122,122,0.15);border:1px solid rgba(224,122,122,0.4);color:var(--rose);font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;height:22px">×</button>
+    `;
+  }
+  requestAnimationFrame(() => {
+    row.querySelectorAll('input[data-fknob]').forEach(sl => {
+      const key = sl.dataset.fknob;
+      const nm = sl.parentNode.querySelector('input[type=number]');
+      const vl = row.querySelector(`[data-v="${key}"]`);
+      bindKnob(sl, nm, vl, flow, key, v=>parseFloat(v), fmt3, () => {});
+    });
+    const lockEl = row.querySelector('select[data-fknob="lock"]');
+    if(lockEl){
+      lockEl.addEventListener('change', () => {
+        flow.lock = lockEl.value;
+        const sl = row.querySelector('input[data-fknob="omega"]');
+        if(sl) sl.disabled = flow.lock !== 'free';
+        const nm = sl && sl.parentNode.querySelector('input[type=number]');
+        if(nm) nm.disabled = flow.lock !== 'free';
+        gaitBuf = [];
+      });
+    }
+    const rmBtn = row.querySelector('button[data-role="rmflow"]');
+    if(rmBtn){
+      rmBtn.addEventListener('click', () => {
+        p.flows.splice(fi, 1);
+        buildWavePanes();
+      });
+    }
+  });
+  return row;
+}
+
+const _headerPresetButtons = {
+  addRotationWaveBtn: 'rotation',
+  addTranslateXBtn:   'translateX',
+  addTranslateYBtn:   'translateY',
+  addOrbitWaveBtn:    'orbit',
+  addOrbitRollBtn:    'rollingOrbit',
+};
+Object.entries(_headerPresetButtons).forEach(([id, name]) => {
+  const b = document.getElementById(id);
+  if(!b) return;
+  b.addEventListener('click', () => addPrimitivePreset(name));
+});
+
+// Wave frame toggle
+function setWaveFrame(mode){
+  S.waveFrame = mode;
+  document.getElementById('btnFrameRing').classList.toggle('on', mode==='ring');
+  document.getElementById('btnFrameObj').classList.toggle('on', mode==='object');
+  const hint = document.getElementById('frameHint');
+  if(mode==='ring'){
+    hint.textContent = 'wave indexed by anchor θ_obj; fingers sweep tangentially during contact';
+  } else {
+    hint.textContent = 'wave locked to object body; fingers grab material points on contact, hold during rotation';
+  }
+  // Clear grabbed state on mode switch
+  for(let i=0;i<S.n;i++){ S.grabbedAlpha[i] = NaN; S.releasedAlpha[i] = NaN; }
+  for(let i=0;i<_prevContact.length;i++) _prevContact[i] = false;
+  gaitBuf=[];
+}
+document.getElementById('btnFrameRing').addEventListener('click', ()=>setWaveFrame('ring'));
+document.getElementById('btnFrameObj').addEventListener('click', ()=>setWaveFrame('object'));
+
+segBind(['btnGhostOn','btnGhostOff'],[true,false],'showGhost');
+segBind(['btnBallOn','btnBallOff'],[true,false],'showBall');
+segBind(['btnPatQ','btnPatS','btnPatD'],['quadrant','stripes','dots'],'ballPattern');
+segBind(['btnWsOn','btnWsOff'],[true,false],'showWorkspace');
+segBind(['btnArrowOn','btnArrowOff'],[true,false],'showConveyArrow');
+
+const shapeIds=['btnShapeCircle','btnShapeBump','btnShapeEllipse','btnShapeTri','btnShapeSquare','btnShapeStar','btnShapePencil','btnShapeTorus','btnShapeDraw'];
+const shapeVals=['circle','bumps','ellipse','triangle','square','star','pencil','torus','draw'];
+shapeIds.forEach((id,i)=>{document.getElementById(id).addEventListener('click',()=>{
+  S.shape=shapeVals[i];
+  shapeIds.forEach(b=>document.getElementById(b).classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  // When switching to torus and innerR is still 0, give it a sensible default
+  if(S.shape==='torus' && S.innerR<0.01){
+    S.innerR = 0.12;
+    setSliderValue('innerRSlider','innerRVal',0.12,'0.12');
+  }
+  resetReveal();gaitBuf=[];
+  document.getElementById('drawWrap').classList.toggle('active',shapeVals[i]==='draw');
+});});
+
+// ─── Drawing canvas ─────────────────────────────────────────────────────────
+const drawCanvas=document.getElementById('drawCanvas');
+const dctx=drawCanvas.getContext('2d');
+const DW=240, DH=240, DCX=DW/2, DCY=DH/2;
+let drawStrokes=[]; // array of arrays of {x,y}
+let currentStroke=[];
+let isDrawing=false;
+
+function allDrawPts(){ return drawStrokes.flat(); }
+
+function drawCanvasRender(){
+  dctx.clearRect(0,0,DW,DH);
+  dctx.fillStyle='#0f0f0e';dctx.fillRect(0,0,DW,DH);
+  dctx.beginPath();dctx.moveTo(DCX,0);dctx.lineTo(DCX,DH);dctx.strokeStyle='rgba(255,255,255,0.06)';dctx.lineWidth=1;dctx.stroke();
+  dctx.beginPath();dctx.moveTo(0,DCY);dctx.lineTo(DW,DCY);dctx.stroke();
+  const refR=S.ballRFrac*DW/2*0.9;
+  dctx.beginPath();dctx.arc(DCX,DCY,refR,0,2*Math.PI);
+  dctx.strokeStyle='rgba(255,255,255,0.08)';dctx.lineWidth=1;dctx.setLineDash([3,5]);dctx.stroke();dctx.setLineDash([]);
+  // Draw all completed strokes
+  drawStrokes.forEach(stroke=>{
+    if(stroke.length<2) return;
+    dctx.beginPath();dctx.moveTo(stroke[0].x,stroke[0].y);
+    for(let i=1;i<stroke.length;i++) dctx.lineTo(stroke[i].x,stroke[i].y);
+    dctx.strokeStyle=rgba(ROSE,.7);dctx.lineWidth=2;dctx.stroke();
+  });
+  // Draw current stroke
+  if(currentStroke.length>1){
+    dctx.beginPath();dctx.moveTo(currentStroke[0].x,currentStroke[0].y);
+    for(let i=1;i<currentStroke.length;i++) dctx.lineTo(currentStroke[i].x,currentStroke[i].y);
+    dctx.strokeStyle=rgba(ROSE,.9);dctx.lineWidth=2;dctx.stroke();
+  }
+}
+
+function drawGetPos(e){
+  const rect=drawCanvas.getBoundingClientRect();
+  return{x:e.clientX-rect.left, y:e.clientY-rect.top};
+}
+
+drawCanvas.addEventListener('mousedown',e=>{isDrawing=true;currentStroke=[drawGetPos(e)];drawCanvasRender();});
+drawCanvas.addEventListener('mousemove',e=>{
+  if(!isDrawing)return;
+  const p=drawGetPos(e);
+  const last=currentStroke[currentStroke.length-1];
+  if(Math.hypot(p.x-last.x,p.y-last.y)>2){currentStroke.push(p);drawCanvasRender();}
+});
+drawCanvas.addEventListener('mouseup',()=>{if(isDrawing&&currentStroke.length>1)drawStrokes.push(currentStroke);currentStroke=[];isDrawing=false;drawCanvasRender();});
+drawCanvas.addEventListener('mouseleave',()=>{if(isDrawing&&currentStroke.length>1)drawStrokes.push(currentStroke);currentStroke=[];isDrawing=false;});
+
+drawCanvas.addEventListener('touchstart',e=>{e.preventDefault();isDrawing=true;currentStroke=[drawGetPos(e.touches[0])];drawCanvasRender();},{passive:false});
+drawCanvas.addEventListener('touchmove',e=>{
+  e.preventDefault();if(!isDrawing)return;
+  const p=drawGetPos(e.touches[0]);
+  const last=currentStroke[currentStroke.length-1];
+  if(Math.hypot(p.x-last.x,p.y-last.y)>2){currentStroke.push(p);drawCanvasRender();}
+},{passive:false});
+drawCanvas.addEventListener('touchend',()=>{if(isDrawing&&currentStroke.length>1)drawStrokes.push(currentStroke);currentStroke=[];isDrawing=false;drawCanvasRender();});
+
+document.getElementById('drawClear').addEventListener('click',()=>{
+  drawStrokes=[];currentStroke=[];S.customShape=null;S.customShapeInner=null;drawCanvasRender();
+  document.getElementById('drawStatus').textContent='Draw a closed shape...';
+});
+
+document.getElementById('drawUse').addEventListener('click',()=>{
+  const drawPts=allDrawPts();
+  if(drawPts.length<10){document.getElementById('drawStatus').textContent='Need more points — draw a bigger shape';return;}
+  sampleAndUseShape(drawPts);
+});
+
+function sampleAndUseShape(drawPts){
+  // Sample the drawn shape into a polar lookup table
+  // For each angle bin, cast a ray from centre and find the furthest intersection
+  // with the polyline (for outer surface) and nearest (for inner, if donut-like).
+  const BINS=720;
+  const outer=new Float32Array(BINS);
+  const inner=new Float32Array(BINS);
+  outer.fill(0);
+  inner.fill(Infinity);
+
+  // Close the shape
+  const pts=[...drawPts,drawPts[0]];
+
+  for(let b=0;b<BINS;b++){
+    const ang=(b/BINS)*2*Math.PI;
+    // Ray from centre: DCX,DCY in direction ang (note: canvas y is down, our θ=0 is "up"/north)
+    // In our ring canvas convention, θ=0 is at top, increasing CW.
+    // In draw canvas, up is -y. So ray direction for θ: dx=sin(ang), dy=-cos(ang)
+    const dx=Math.sin(ang), dy=-Math.cos(ang);
+
+    for(let i=0;i<pts.length-1;i++){
+      // Segment from pts[i] to pts[i+1]
+      const ax=pts[i].x-DCX, ay=pts[i].y-DCY;
+      const bx=pts[i+1].x-DCX, by=pts[i+1].y-DCY;
+      // Ray: P = t*(dx,dy), t>=0
+      // Segment: Q = (ax,ay) + s*((bx-ax),(by-ay)), 0<=s<=1
+      // Solve: t*dx = ax + s*(bx-ax), t*dy = ay + s*(by-ay)
+      const ex=bx-ax, ey=by-ay;
+      const denom=dx*ey-dy*ex;
+      if(Math.abs(denom)<1e-10) continue;
+      const t=(ax*ey-ay*ex)/denom;
+      const s=(ax*dy-ay*dx)/denom;
+      if(t>0 && s>=0 && s<=1){
+        // Convert t to radius as fraction of SIZE
+        // Draw canvas maps to ring canvas: draw canvas radius DW/2 ~ ring canvas SIZE/2
+        // So: r_fraction = t / (DW/2) * (SIZE/2) / SIZE = t / DW
+        const rFrac = t / DW;
+        if(rFrac > outer[b]) outer[b] = rFrac;
+        if(rFrac < inner[b]) inner[b] = rFrac;
+      }
+    }
+  }
+
+  // Check we got data
+  let valid=0;
+  for(let b=0;b<BINS;b++) if(outer[b]>0) valid++;
+  if(valid<BINS*0.5){
+    document.getElementById('drawStatus').textContent='Shape too small or not closed — try again';
+    return;
+  }
+
+  // Fill gaps in outer (if ray missed due to coarse sampling)
+  for(let b=0;b<BINS;b++){
+    if(outer[b]<0.001){
+      const prev=((b-1)%BINS+BINS)%BINS;
+      const next=(b+1)%BINS;
+      outer[b]=(outer[prev]+outer[next])/2;
+    }
+  }
+
+  // Check if there's a meaningful inner surface (donut)
+  let hasInner=true;
+  for(let b=0;b<BINS;b++){
+    if(inner[b]>=outer[b]||inner[b]===Infinity){hasInner=false;break;}
+  }
+
+  S.customShape=outer;
+  S.customShapeInner=hasInner?inner:null;
+  S.shape='draw';
+  shapeIds.forEach(b=>document.getElementById(b).classList.remove('on'));
+  document.getElementById('btnShapeDraw').classList.add('on');
+  resetReveal();gaitBuf=[];
+
+  // Redraw with the shape visible
+  drawCanvasRender();
+  // Draw the sampled polar curve back onto the draw canvas for verification
+  dctx.beginPath();
+  for(let b=0;b<=BINS;b++){
+    const ang=(b%BINS)/BINS*2*Math.PI;
+    const r=outer[b%BINS]*DW;
+    const x=DCX+r*Math.sin(ang);
+    const y=DCY-r*Math.cos(ang);
+    b===0?dctx.moveTo(x,y):dctx.lineTo(x,y);
+  }
+  dctx.strokeStyle=rgba(TEAL,.5);dctx.lineWidth=1;dctx.stroke();
+
+  if(hasInner){
+    dctx.beginPath();
+    for(let b=0;b<=BINS;b++){
+      const ang=(b%BINS)/BINS*2*Math.PI;
+      const r=inner[b%BINS]*DW;
+      const x=DCX+r*Math.sin(ang);
+      const y=DCY-r*Math.cos(ang);
+      b===0?dctx.moveTo(x,y):dctx.lineTo(x,y);
+    }
+    dctx.strokeStyle=rgba(AMBER,.4);dctx.lineWidth=1;dctx.setLineDash([2,3]);dctx.stroke();dctx.setLineDash([]);
+  }
+
+  document.getElementById('drawStatus').textContent=
+    `Shape loaded: ${valid}/${BINS} bins`+(hasInner?' (inner surface detected)':'');
+}
+
+drawCanvasRender();
+
+// ─── SVG upload ──────────────────────────────────────────────────────────────
+document.getElementById('svgUpload').addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const text=await file.text();
+  document.getElementById('drawStatus').textContent='Processing SVG...';
+
+  // Render SVG at high resolution to a temporary canvas for edge extraction
+  const img=new Image();
+  const blob=new Blob([text],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  img.onload=()=>{
+    // Use a larger offscreen canvas for better edge detection
+    const hiRes=600;
+    const offCanvas=document.createElement('canvas');
+    offCanvas.width=offCanvas.height=hiRes;
+    const octx=offCanvas.getContext('2d');
+    const scale=Math.min((hiRes-20)/img.width,(hiRes-20)/img.height);
+    const sw=img.width*scale, sh=img.height*scale;
+    const ox=(hiRes-sw)/2, oy=(hiRes-sh)/2;
+    octx.fillStyle='#000';octx.fillRect(0,0,hiRes,hiRes);
+    octx.drawImage(img,ox,oy,sw,sh);
+    const imgData=octx.getImageData(0,0,hiRes,hiRes).data;
+
+    // Find all edge pixels: pixel with alpha>30 adjacent to pixel with alpha<=30
+    const isOpaque=(x,y)=>{
+      if(x<0||x>=hiRes||y<0||y>=hiRes) return false;
+      // Check if any colour channel has significant value OR alpha is high
+      const idx=(y*hiRes+x)*4;
+      return imgData[idx+3]>30 && (imgData[idx]>20||imgData[idx+1]>20||imgData[idx+2]>20);
+    };
+
+    // Raycast from centre of hi-res canvas for polar sampling directly
+    const BINS=720;
+    const outer=new Float32Array(BINS);
+    const inner=new Float32Array(BINS);
+    outer.fill(0);inner.fill(Infinity);
+    const hcx=hiRes/2, hcy=hiRes/2;
+
+    for(let b=0;b<BINS;b++){
+      const ang=(b/BINS)*2*Math.PI;
+      const rdx=Math.sin(ang), rdy=-Math.cos(ang);
+      // Walk along ray and find transitions (opaque→transparent = edge)
+      const maxR=hiRes/2;
+      let lastOpaque=false;
+      for(let t=1;t<maxR;t+=0.5){
+        const px=Math.round(hcx+t*rdx), py=Math.round(hcy+t*rdy);
+        const op=isOpaque(px,py);
+        if(op&&!lastOpaque){
+          // Entering shape — inner edge
+          const rFrac=t/hiRes;
+          if(rFrac<inner[b]) inner[b]=rFrac;
+        }
+        if(!op&&lastOpaque){
+          // Leaving shape — outer edge
+          const rFrac=t/hiRes;
+          if(rFrac>outer[b]) outer[b]=rFrac;
+        }
+        lastOpaque=op;
+      }
+      // If still opaque at edge, mark outer
+      if(lastOpaque){
+        outer[b]=Math.max(outer[b],(hiRes/2)/hiRes);
+      }
+    }
+
+    // Count valid
+    let valid=0;
+    for(let b=0;b<BINS;b++) if(outer[b]>0.01) valid++;
+    if(valid<BINS*0.3){
+      document.getElementById('drawStatus').textContent=`Only ${valid}/${BINS} rays hit shape — try a bolder SVG`;
+      URL.revokeObjectURL(url);return;
+    }
+
+    // Fill gaps
+    for(let pass=0;pass<3;pass++){
+      for(let b=0;b<BINS;b++){
+        if(outer[b]<0.01){
+          const prev=((b-1)%BINS+BINS)%BINS;
+          const next=(b+1)%BINS;
+          if(outer[prev]>0.01&&outer[next]>0.01) outer[b]=(outer[prev]+outer[next])/2;
+        }
+      }
+    }
+
+    // Check inner surface
+    let hasInner=true;
+    for(let b=0;b<BINS;b++){
+      if(inner[b]>=outer[b]||inner[b]===Infinity){hasInner=false;break;}
+    }
+
+    S.customShape=outer;
+    S.customShapeInner=hasInner?inner:null;
+    S.shape='draw';
+    shapeIds.forEach(b=>document.getElementById(b).classList.remove('on'));
+    document.getElementById('btnShapeDraw').classList.add('on');
+    resetReveal();gaitBuf=[];
+
+    // Render the SVG on the draw canvas + sampled outline
+    drawStrokes=[];currentStroke=[];
+    drawCanvasRender();
+    // Draw SVG at draw canvas scale
+    const dScale=Math.min((DW-10)/img.width,(DH-10)/img.height);
+    const dsw=img.width*dScale, dsh=img.height*dScale;
+    dctx.drawImage(img,(DW-dsw)/2,(DH-dsh)/2,dsw,dsh);
+    // Overlay sampled outline
+    dctx.beginPath();
+    for(let b=0;b<=BINS;b++){
+      const ang=(b%BINS)/BINS*2*Math.PI;
+      const r=outer[b%BINS]*DW;
+      const px=DCX+r*Math.sin(ang), py=DCY-r*Math.cos(ang);
+      b===0?dctx.moveTo(px,py):dctx.lineTo(px,py);
+    }
+    dctx.strokeStyle=rgba(TEAL,.6);dctx.lineWidth=1.5;dctx.stroke();
+
+    document.getElementById('drawStatus').textContent=
+      `SVG loaded: ${valid}/${BINS} bins`+(hasInner?' (inner surface detected)':'');
+    URL.revokeObjectURL(url);
+  };
+  img.onerror=()=>{
+    document.getElementById('drawStatus').textContent='Failed to load SVG';
+    URL.revokeObjectURL(url);
+  };
+  img.src=url;
+});
+
+document.getElementById('btnRevealOff').addEventListener('click',()=>{S.revealMode=false;document.getElementById('btnRevealOff').classList.add('on');document.getElementById('btnRevealOn').classList.remove('on');});
+document.getElementById('btnRevealOn').addEventListener('click',()=>{S.revealMode=true;resetReveal();document.getElementById('btnRevealOn').classList.add('on');document.getElementById('btnRevealOff').classList.remove('on');});
+document.getElementById('resetReveal').addEventListener('click',resetReveal);
+
+['wbAll','wbOne','wbNone'].forEach((id,i)=>{document.getElementById(id).addEventListener('click',()=>{S.nodeMode=['all','one','none'][i];['wbAll','wbOne','wbNone'].forEach(b=>document.getElementById(b).classList.remove('on'));document.getElementById(id).classList.add('on');});});
+
+document.getElementById('playBtn').addEventListener('click',()=>{S.playing=!S.playing;document.getElementById('playBtn').textContent=S.playing?'⏸':'▶';if(S.playing)lastTs=null;});
+
+ringCanvas.addEventListener('click',e=>{
+  if(e.shiftKey) return; // shift-click reserved for CoR
+  const rect=ringCanvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(SIZE/rect.width),my=(e.clientY-rect.top)*(SIZE/rect.height);
+  const ang=Math.atan2(my-SIZE/2,mx-SIZE/2)+Math.PI/2;
+  const normAng=((ang%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  S.watchFinger=Math.round(normAng/(2*Math.PI)*S.n)%S.n;
+});
+
+// Shift-click to set the static orbit offset (object centroid position)
+ringCanvas.addEventListener('click',e=>{
+  if(!e.shiftKey) return;
+  const rect=ringCanvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(SIZE/rect.width),my=(e.clientY-rect.top)*(SIZE/rect.height);
+  // Click offset from canvas centre, in fraction of SIZE (accounting for zoom)
+  S.orbX0=(mx-SIZE/2)/(SIZE*S.zoom);
+  S.orbY0=(my-SIZE/2)/(SIZE*S.zoom);
+  // Clamp to slider range
+  S.orbX0=Math.max(-0.3,Math.min(0.3,S.orbX0));
+  S.orbY0=Math.max(-0.3,Math.min(0.3,S.orbY0));
+  setSliderValue('orbX0Slider','orbX0Val',S.orbX0,S.orbX0.toFixed(3));
+  setSliderValue('orbY0Slider','orbY0Val',S.orbY0,S.orbY0.toFixed(3));
+  gaitBuf=[];
+});
+
+function sizeCanvases(){
+  gaitCanvas.width=gaitCanvas.parentElement.offsetWidth-24;
+  const pw=Math.max(60,document.getElementById('wavePanel').offsetWidth-20);
+  const wcOrbit=document.getElementById('wcOrbit');
+  [wcRadial,wcSurface,wcSum,wcSaw,wcOrbit].forEach(c=>{c.width=pw;});
+}
+window.addEventListener('resize',sizeCanvases);
+sizeCanvases();
+buildWavePanes();
+buildFingerRow();
+
+// ─── Test harness (non-blocking; results render to #testResults) ─────────────
+const TESTS = [];
+function defineTest(name, opts){
+  TESTS.push(Object.assign({ name, baseline: null, tol: 1e-3 }, opts));
+}
+
+function snapshotState(){
+  return {
+    primitives: JSON.parse(JSON.stringify(S.primitives.map(p => {
+      const { manifold, _slots, ...rest } = p; return { ...rest, _slots: [..._slots] };
+    }))),
+    activePrimitive: S.activePrimitive,
+    fingerSlotPres2D: S.fingerSlotPres2D.map(a => [...a]),
+    centroidX: S.centroidX, centroidY: S.centroidY,
+    ballAngle: S.ballAngle, time: S.time, playing: S.playing,
+    grabbedAlpha: [...S.grabbedAlpha], releasedAlpha: [...S.releasedAlpha],
+    prevContact: [..._prevContact], waveFrame: S.waveFrame,
+    fingerActive: [...S.fingerActive], n: S.n,
+  };
+}
+function restoreState(snap){
+  S.primitives = snap.primitives.map(spec => {
+    const p = makePrimitive(spec);
+    p.wavePhase = spec.wavePhase; p._slots = [...spec._slots]; p.cLock = spec.cLock;
+    return p;
+  });
+  S.activePrimitive = snap.activePrimitive;
+  S.fingerSlotPres2D = snap.fingerSlotPres2D.map(a => [...a]);
+  S.centroidX = snap.centroidX; S.centroidY = snap.centroidY;
+  S.ballAngle = snap.ballAngle; S.time = snap.time; S.playing = snap.playing;
+  for(let i=0;i<24;i++){
+    S.grabbedAlpha[i] = snap.grabbedAlpha[i];
+    S.releasedAlpha[i] = snap.releasedAlpha[i];
+    _prevContact[i] = snap.prevContact[i];
+    S.fingerActive[i] = snap.fingerActive[i];
+  }
+  S.waveFrame = snap.waveFrame; S.n = snap.n;
+}
+
+function testReset(){
+  S.primitives = [];
+  S.activePrimitive = 0;
+  S.fingerSlotPres2D = [];
+  S.centroidX = 0; S.centroidY = 0;
+  S.ballAngle = 0; S.time = 0;
+  S.n = 8;  // default; tests that need a different n can override
+  for(let i=0;i<24;i++){
+    S.grabbedAlpha[i] = NaN; S.releasedAlpha[i] = NaN; _prevContact[i] = false;
+    S.fingerActive[i] = true;
+  }
+  S.waveFrame = 'object'; S.playing = true;
+}
+
+function testStep(dt, n){ for(let i=0;i<n;i++) simulationStep(dt); }
+
+function countContacts(){
+  let c = 0;
+  for(let i=0;i<S.n;i++){
+    if(!S.fingerActive[i]) continue;
+    if(_prevContact[i]) c++;
+  }
+  return c;
+}
+
+function approxEq(actual, expected, tol){
+  if(typeof actual !== 'number' || typeof expected !== 'number') return actual === expected;
+  if(!isFinite(actual) || !isFinite(expected)) return actual === expected;
+  return Math.abs(actual - expected) <= tol;
+}
+
+function fmtv(v){
+  if(typeof v !== 'number') return String(v);
+  if(!isFinite(v)) return String(v);
+  if(Math.abs(v) < 1e-9) return '0';
+  if(Math.abs(v) < 0.001 || Math.abs(v) >= 10000) return v.toExponential(3);
+  return v.toFixed(4);
+}
+
+// ── Test definitions ──────────────────────────────────────────────────────
+
+// Each test exposes `setup()` (configures S.primitives + initial step) and
+// `measure()` (samples the state and returns captures). The harness's run()
+// calls setup + measure. The "see" button calls only setup, then leaves the
+// sim playing so the user can inspect what the test is doing.
+
+defineTest('body rotation: angle = ω·t', {
+  tol: 1e-6,
+  setup(){
+    testReset();
+    addPrimitivePreset('rotation');
+    testStep(0.01, 100);
+  },
+  measure(){ return { ballAngle: S.ballAngle }; },
+  baseline: { ballAngle: 0.5 },
+});
+
+defineTest('translation: centroid = v·t', {
+  tol: 1e-3,
+  setup(){
+    testReset();
+    addPrimitivePreset('translateX');
+    testStep(0.01, 100);
+  },
+  measure(){ return { centroidX_frac: S.centroidX / SIZE, centroidY_frac: S.centroidY / SIZE }; },
+  baseline: { centroidX_frac: 0.05, centroidY_frac: 0 },
+});
+
+defineTest('orbit: no radial drift over one period', {
+  tol: 5e-3,
+  setup(){
+    testReset();
+    addPrimitivePreset('orbit');
+    this._r0 = Math.hypot(S.centroidX/SIZE, S.centroidY/SIZE);
+    const period = 2*Math.PI / 0.5;
+    testStep(0.005, Math.round(period / 0.005));
+  },
+  measure(){
+    const r1 = Math.hypot(S.centroidX/SIZE, S.centroidY/SIZE);
+    return { r_initial: this._r0, r_after_period: r1, radial_drift: Math.abs(r1 - this._r0) };
+  },
+  baseline: { radial_drift: 0 },
+});
+
+defineTest('rolling orbit: ω_body = -Ω·R/r_body (lock)', {
+  tol: 1e-3,
+  setup(){
+    testReset();
+    addPrimitivePreset('rollingOrbit');
+  },
+  measure(){
+    const p = S.primitives[0];
+    const ext = p.flows.find(f => f.kind === 'externalRotation');
+    const rot = p.flows.find(f => f.kind === 'bodyRotation');
+    const R = Math.hypot(S.centroidX/SIZE - ext.cx, S.centroidY/SIZE - ext.cy);
+    return { omega_body_resolved: flowRate(p, rot).omega, expected_formula: -ext.omega * R / S.ballRFrac };
+  },
+  baseline: { omega_body_resolved: -0.66071 },
+});
+
+defineTest('rolling orbit: c = Ω·(r_body + R) (tracks-orbit lock)', {
+  tol: 1e-3,
+  setup(){
+    testReset();
+    addPrimitivePreset('rollingOrbit');
+  },
+  measure(){
+    const p = S.primitives[0];
+    const ext = p.flows.find(f => f.kind === 'externalRotation');
+    const R = Math.hypot(S.centroidX/SIZE - ext.cx, S.centroidY/SIZE - ext.cy);
+    return { c_resolved: waveC(p), expected_formula: ext.omega * (S.ballRFrac + R) };
+  },
+  baseline: { c_resolved: 0.325 },
+});
+
+defineTest('n_w·dc average contact count', {
+  tol: 0.6,
+  setup(){
+    testReset();
+    S.n = 24;
+    addPrimitivePreset('rotation');
+    S.primitives[0].nWave = 10;
+    S.primitives[0].dc = 0.6;
+  },
+  measure(){
+    const omega = waveOmega(S.primitives[0]);
+    const T = (omega > 1e-6) ? (2*Math.PI / Math.abs(omega)) : 1;
+    const dt = 0.01;
+    const steps = Math.max(200, Math.round(T / dt));
+    let total = 0;
+    for(let s=0; s<steps; s++){ simulationStep(dt); total += countContacts(); }
+    return { avg_contacts: total / steps };
+  },
+  baseline: { avg_contacts: 6 },
+});
+
+defineTest('multi-primitive OR: union ≥ single', {
+  tol: 0,
+  setup(){
+    testReset();
+    addPrimitivePreset('rotation');
+    addPrimitivePreset('rotation');
+    S.primitives[0].phase = 0; S.primitives[1].phase = Math.PI;
+    testStep(0.01, 50);
+  },
+  measure(){
+    const total = countContacts();
+    S.primitives.pop();
+    testStep(0.01, 5);
+    const single = countContacts();
+    return { total_OR: total, single, OR_larger_or_equal: total >= single };
+  },
+  baseline: { OR_larger_or_equal: true },
+});
+
+defineTest('standing wave (c=0): wavePhase doesn\'t advance', {
+  tol: 1e-9,
+  setup(){
+    testReset();
+    addPrimitivePreset('rotation');
+    S.primitives[0].c = 0;
+    S.primitives[0].flows[0].omega = 0;
+    this._phase0 = S.primitives[0].wavePhase;
+    testStep(0.01, 200);
+  },
+  measure(){ return { wavePhase_delta: S.primitives[0].wavePhase - this._phase0 }; },
+  baseline: { wavePhase_delta: 0 },
+});
+
+defineTest('sticky grip: someone grips during rotation', {
+  tol: 0,
+  setup(){
+    testReset();
+    addPrimitivePreset('rotation');
+    testStep(0.005, 200);
+  },
+  measure(){
+    let anyGrabbed = false;
+    for(let i=0;i<S.n;i++){ if(!isNaN(S.grabbedAlpha[i])){ anyGrabbed = true; break; } }
+    return { someone_gripping: anyGrabbed };
+  },
+  baseline: { someone_gripping: true },
+});
+
+defineTest('wave-locked rolling: world-frame contact speed ≈ 0', {
+  tol: 5,
+  setup(){
+    testReset();
+    addPrimitivePreset('rollingOrbit');
+    S.primitives[0].dc = 0.05;
+    testStep(0.005, 400);
+  },
+  measure(){
+    let fi = -1;
+    for(let i=0;i<S.n;i++){ if(_prevContact[i]){ fi = i; break; } }
+    if(fi < 0) return { contact_world_speed_px_per_s: NaN, note: 'no contact found' };
+    const fp1 = fingerPos(fi, S.time);
+    const x1 = fp1.obj_x + fp1.r_contact * Math.sin(fp1.theta_obj_contact);
+    const y1 = fp1.obj_y - fp1.r_contact * Math.cos(fp1.theta_obj_contact);
+    const dt = 0.001;
+    simulationStep(dt);
+    if(!_prevContact[fi]) return { contact_world_speed_px_per_s: NaN, note: 'lost contact mid-probe' };
+    const fp2 = fingerPos(fi, S.time);
+    const x2 = fp2.obj_x + fp2.r_contact * Math.sin(fp2.theta_obj_contact);
+    const y2 = fp2.obj_y - fp2.r_contact * Math.cos(fp2.theta_obj_contact);
+    return { contact_world_speed_px_per_s: Math.hypot(x2-x1, y2-y1) / dt, contacted_finger_index: fi };
+  },
+  baseline: { contact_world_speed_px_per_s: 0 },
+});
+
+// ── Run + render ──────────────────────────────────────────────────────────
+
+// Run one test: setup() + measure(). Returns the captures (or throws).
+function runOneTest(t){
+  if(t.setup) t.setup();
+  if(t.measure) return t.measure();
+  if(t.run) return t.run();
+  return {};
+}
+
+// Snapshot before running tests; restore after so the user's session isn't
+// disturbed. Saved here so the "see" button can also snapshot before loading
+// a test state for inspection.
+let _testSnap = null;
+
+// "see" button: snapshot the user's state, call test.setup(), leave the sim
+// running so the user can inspect visually. A "restore" affordance appears
+// at the top of the results pane until clicked or until another "see" fires.
+function seeTest(t){
+  if(!_testSnap) _testSnap = snapshotState();
+  try {
+    if(t.setup) t.setup();
+    else if(t.run) { t.run(); }  // fallback: full run leaves state at the end
+  } catch(e){
+    document.getElementById('testResults').innerHTML =
+      `<span style="color:#e07a7a">ERROR loading test "${t.name}": ${e.message}</span>`;
+    return;
+  }
+  // Rebuild the UI to reflect the new state.
+  ensureSlotPres();
+  buildWavePanes();
+  buildFingerRow();
+  // Show banner with restore button.
+  document.getElementById('testResults').innerHTML =
+    `<div style="background:rgba(247,197,159,0.10);border:1px solid rgba(247,197,159,0.3);border-radius:5px;padding:6px 9px;margin-bottom:8px">` +
+    `<span style="color:var(--amber)">Loaded test state: <b>${t.name}</b>.</span> ` +
+    `<button id="testRestore" style="background:rgba(78,205,196,0.10);border:1px solid rgba(78,205,196,0.35);color:var(--teal);font-family:inherit;font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;margin-left:8px">restore previous state</button>` +
+    `</div>`;
+  document.getElementById('testRestore').addEventListener('click', () => {
+    if(_testSnap){ restoreState(_testSnap); _testSnap = null; }
+    ensureSlotPres();
+    buildWavePanes();
+    buildFingerRow();
+    document.getElementById('testResults').innerHTML = '<span style="color:var(--muted)">state restored</span>';
+  });
+}
+
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function runAllTests(){
+  const out = [];
+  let pass = 0, fail = 0, nob = 0, err = 0;
+  // Snapshot before; restore after so tests don't disturb live session.
+  const snap = snapshotState();
+  TESTS.forEach((t, ti) => {
+    let captured, error = null;
+    try { captured = runOneTest(t); } catch(e){ error = e; }
+    const seeBtn = `<button class="testSeeBtn" data-ti="${ti}" style="background:rgba(78,205,196,0.10);border:1px solid rgba(78,205,196,0.35);color:var(--teal);font-family:monospace;font-size:9px;padding:1px 6px;border-radius:3px;cursor:pointer;margin-left:8px">see ▶</button>`;
+    if(error){
+      out.push(`<span style="color:#e07a7a">✗ ERROR</span>  ${escapeHtml(t.name)}${seeBtn}\n        ${escapeHtml(error.message)}`);
+      err++; return;
+    }
+    if(!t.baseline){
+      const lines = Object.entries(captured).map(([k,v]) => `          ${escapeHtml(k)}: ${escapeHtml(fmtv(v))}`).join('\n');
+      out.push(`<span style="color:var(--amber)">◌ NO-BASELINE</span>  ${escapeHtml(t.name)}${seeBtn}\n${lines}`);
+      nob++; return;
+    }
+    const mismatches = [];
+    for(const [k, exp] of Object.entries(t.baseline)){
+      if(!(k in captured)){ mismatches.push(`missing key ${k}`); continue; }
+      if(!approxEq(captured[k], exp, t.tol)){
+        mismatches.push(`${k}: got ${fmtv(captured[k])}, expected ${fmtv(exp)} (tol ${t.tol})`);
+      }
+    }
+    if(mismatches.length === 0){
+      out.push(`<span style="color:var(--teal)">✓ PASS</span>  ${escapeHtml(t.name)}${seeBtn}`);
+      pass++;
+    } else {
+      const captureLines = Object.entries(captured).map(([k,v]) => `          ${escapeHtml(k)}: ${escapeHtml(fmtv(v))}`).join('\n');
+      out.push(`<span style="color:#e07a7a">✗ FAIL</span>  ${escapeHtml(t.name)}${seeBtn}\n        ${mismatches.map(escapeHtml).join('\n        ')}\n${captureLines}`);
+      fail++;
+    }
+  });
+  restoreState(snap);
+  const sum = `${pass} pass, ${fail} fail, ${nob} no-baseline, ${err} error  (${TESTS.length} total)`;
+  document.getElementById('testResults').innerHTML = out.join('\n\n') + '\n\n— ' + escapeHtml(sum);
+  document.getElementById('testSummary').textContent = sum;
+  // Wire "see" buttons.
+  document.querySelectorAll('.testSeeBtn').forEach(b => {
+    b.addEventListener('click', () => {
+      const ti = parseInt(b.dataset.ti);
+      seeTest(TESTS[ti]);
+    });
+  });
+  return { pass, fail, nob, err };
+}
+
+document.getElementById('testToggle').addEventListener('click', () => {
+  const body = document.getElementById('testBody');
+  const tog = document.getElementById('testToggle');
+  const run = document.getElementById('testRunAll');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  run.style.display = open ? 'inline-block' : 'none';
+  tog.textContent = open ? '▾ tests' : '▸ tests';
+});
+document.getElementById('testRunAll').addEventListener('click', runAllTests);
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

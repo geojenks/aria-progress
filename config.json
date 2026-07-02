@@ -1,0 +1,36 @@
+{
+  "eyebrow": "ARIA · Robot Dexterity Programme",
+  "title": "WP3 — Characterisation & Dexterous Manipulation",
+  "subtitle": "George Jenkinson · Research Associate · University of Bath. Living progress page — updated continuously.",
+  "footer": "Access-restricted progress page · ARIA WP3 · University of Bath · not indexed, not for redistribution.",
+  "pw_hash": "e8939cfc8a159438694cc0fe1dc6debbaa5f9a8c5fd42e14c1969a81734c4ef2",
+  "overview_aim": "Two threads within WP3: a methodology that characterises and classifies soft actuators (primary milestone D3.1), and an exploratory wave-based manipulation framework relevant to WP3.2's dimensionality-reduction aim and Milestone 5 (internal physical interactions).",
+  "overview_chips": [
+    {"text": "Pace: on track", "rag": "g"},
+    {"text": "Confidence: high", "rag": "g"},
+    {"text": "Contribution to programme: strong", "rag": "g"}
+  ],
+  "groups": [
+    {
+      "id": "wp31",
+      "nav": "WP3.1 · Classification",
+      "heading": "WP3.1 / D3.1 — Characteristics Classification Methodology",
+      "aim": "A reusable pipeline that fingerprints an actuator's controllability/observability and places it in a shared, interpretable feature space.",
+      "areas": ["classification-pipeline", "feature-space", "classification-data", "actuator-generators", "mesh-labelling-gui"]
+    },
+    {
+      "id": "wp32",
+      "nav": "WP3.2 · Manipulation",
+      "heading": "WP3.2 (relevance) — Wave-Based In-Hand Manipulation",
+      "aim": "Author a manipulation in a low-dimensional \"manifold\" (intent) space, then enact it on any capable manipulator — a tangible instance of the dimensionality-reduction idea, expanding Milestone 5's geometric-factors theme.",
+      "areas": ["manifold-widget", "manifold-planner", "manipulator-ik", "wave-theory"]
+    },
+    {
+      "id": "outputs",
+      "nav": "Outputs",
+      "heading": "Outputs & Reusable Tooling",
+      "aim": "The software is a deliverable in its own right, and much of it is portable to other projects.",
+      "areas": ["software-library"]
+    }
+  ]
+}

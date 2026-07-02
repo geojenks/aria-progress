@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{TITLE}}</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161b22; --panel2:#1c232d; --ink:#e6edf3; --mut:#9aa7b4;
+    --line:#2a333d; --accent:#5eb0ff; --green:#3fb950; --amber:#d29922; --red:#f85149;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:.9em}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+
+  /* ---- password gate ---- */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+        justify-content:center;z-index:50;padding:20px}
+  #gate .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+        padding:32px;max-width:400px;width:100%;text-align:center}
+  #gate h1{font-size:20px;margin:0 0 6px} #gate p{color:var(--mut);margin:0 0 20px;font-size:14px}
+  #gate input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);
+        background:var(--panel2);color:var(--ink);font-size:15px;margin-bottom:12px}
+  #gate button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--accent);
+        color:#04121f;font-weight:650;font-size:15px;cursor:pointer}
+  #gate .err{color:var(--red);font-size:13px;min-height:18px;margin-top:10px}
+
+  /* ---- header / nav ---- */
+  header.top{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#141a21,#0f1216)}
+  header.top .wrap{padding-top:34px;padding-bottom:26px}
+  .eyebrow{color:var(--accent);font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:650}
+  header.top h1{font-size:30px;margin:6px 0 4px;letter-spacing:-.02em}
+  header.top .sub{color:var(--mut);margin:0}
+  nav.bar{position:sticky;top:0;z-index:20;background:rgba(15,18,22,.86);backdrop-filter:blur(8px);
+        border-bottom:1px solid var(--line)}
+  nav.bar .wrap{display:flex;gap:20px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px;font-size:14px}
+  nav.bar a{color:var(--mut);font-weight:550} nav.bar a:hover{color:var(--ink);text-decoration:none}
+
+  /* ---- sections / areas ---- */
+  section{padding:40px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .aim{color:var(--mut);margin:0 0 18px}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+        padding:4px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);
+        vertical-align:middle}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .g{background:var(--green)} .a{background:var(--amber)} .r{background:var(--red)}
+  .area{margin-top:30px;padding-top:6px}
+  .area h3{font-size:17px;margin:0 0 6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .take{margin:0 0 4px;font-size:15.5px}
+  ul.prog{margin:10px 0 0;padding-left:0;list-style:none}
+  ul.prog li{padding:8px 0 8px 22px;position:relative;border-top:1px solid var(--line);
+        font-size:14.5px;color:var(--mut)}
+  ul.prog li strong{color:var(--ink)}
+  ul.prog li:before{content:"";position:absolute;left:2px;top:15px;width:7px;height:7px;
+        border-radius:50%;background:var(--accent)}
+  ul.takehomes{margin:16px 0 0;padding-left:0;list-style:none}
+  ul.takehomes li{padding:9px 0 9px 22px;position:relative;border-top:1px solid var(--line);font-size:15px}
+  ul.takehomes li:before{content:"";position:absolute;left:2px;top:17px;width:7px;height:7px;
+        border-radius:50%;background:var(--green)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:18px}
+  .demo{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .demo .ph{aspect-ratio:16/10;background:var(--panel2);display:flex;align-items:center;justify-content:center;
+        color:var(--mut);font-size:13px;text-align:center;padding:14px}
+  .demo video,.demo img{width:100%;display:block;aspect-ratio:16/10;object-fit:contain;background:#000}
+  .demo .cap{padding:10px 12px;font-size:13px;color:var(--mut)}
+  .versions{margin:12px 0 0;font-size:13px;color:var(--mut)}
+  .mut{color:var(--mut)}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:10px;padding:14px 16px;margin-top:16px;font-size:14.5px;color:var(--mut)}
+
+  /* ---- updates log ---- */
+  .update{border-left:2px solid var(--line);padding:0 0 24px 20px;margin-left:6px;position:relative}
+  .update:before{content:"";position:absolute;left:-6px;top:4px;width:10px;height:10px;border-radius:50%;
+        background:var(--accent);border:2px solid var(--bg)}
+  .update .date{color:var(--accent);font-size:13px;font-weight:650}
+  .update h3{margin:2px 0 6px;font-size:16px}
+  .update p{margin:0 0 4px;color:var(--mut);font-size:14.5px}
+  .update .links{font-size:13px}
+
+  footer{padding:30px 0;color:var(--mut);font-size:13px}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ============ PASSWORD GATE ============ -->
+<!-- NOTE: client-side gate = deterrence, not security. Deep links to media/demos bypass it. See README. -->
+<div id="gate">
+  <div class="card">
+    <h1>{{TITLE}}</h1>
+    <p>Access-restricted. Enter the password to continue.</p>
+    <input id="pw" type="password" placeholder="Password" autocomplete="off"
+           onkeydown="if(event.key==='Enter')checkPw()">
+    <button onclick="checkPw()">Enter</button>
+    <div class="err" id="err"></div>
+  </div>
+</div>
+
+<!-- ============ SITE (generated — do not edit by hand; edit areas/, updates/, config.json) ============ -->
+<div id="site" class="hidden">
+
+  <header class="top">
+    <div class="wrap">
+      <div class="eyebrow">{{EYEBROW}}</div>
+      <h1>{{TITLE}}</h1>
+      <p class="sub">{{SUBTITLE}}</p>
+    </div>
+  </header>
+
+  <nav class="bar"><div class="wrap">
+    {{NAV}}
+  </div></nav>
+
+  <section id="overview"><div class="wrap">
+    <h2>Overview</h2>
+    <p class="aim">{{OVERVIEW_AIM}}</p>
+    {{OVERVIEW_CHIPS}}
+    <ul class="takehomes">
+      {{TAKE_HOMES}}
+    </ul>
+  </div></section>
+
+{{SECTIONS}}
+
+  <section id="updates"><div class="wrap">
+    <h2>Updates</h2>
+{{TIMELINE}}
+  </div></section>
+
+  <footer><div class="wrap">
+    {{FOOTER}} · page generated {{BUILT}}.
+  </div></footer>
+
+</div><!-- /site -->
+
+<script>
+  // Client-side gate. SHA-256 of the password; compared in-browser. See README for stronger options.
+  const PW_HASH = "{{PW_HASH}}";
+  async function sha256(s){
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  function reveal(){
+    document.getElementById("gate").classList.add("hidden");
+    document.getElementById("site").classList.remove("hidden");
+  }
+  async function checkPw(){
+    const v = document.getElementById("pw").value;
+    const h = await sha256(v);
+    if(h === PW_HASH){ sessionStorage.setItem("aria_ok","1"); reveal(); }
+    else { document.getElementById("err").textContent = "Incorrect password."; }
+  }
+  if(sessionStorage.getItem("aria_ok")==="1") reveal();
+</script>
+</body>
+</html>

@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wave Manipulation — Authoring</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #283040; --ink: #e6edf3;
+    --muted: #8b949e; --accent: #5ad1c4; --hot: #ff7b6b; --grab: #f2c94c;
+    --inst: #9b8cff; --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    display: grid; grid-template-columns: 360px 1fr; height: 100vh;
+  }
+  /* ── control rail ── */
+  aside {
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 18px; overflow-y: auto;
+  }
+  h1 { font-size: 15px; letter-spacing: .03em; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .zone { border-radius: 10px; padding: 14px; margin-bottom: 16px; border: 1px solid var(--line); }
+  .zone.instance { border-color: #3a3357; background: #181626; }
+  .zone.manifold { border-color: #1f3b39; background: #121d1c; }
+  .zone > .ztitle { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+    display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+  .zone.instance .ztitle { color: var(--inst); }
+  .zone.manifold .ztitle { color: var(--accent); }
+  .zone > .zhint { color: var(--muted); font-size: 11px; margin-bottom: 12px; }
+  .pill { font-size: 9px; padding: 2px 6px; border-radius: 99px; letter-spacing: .04em;
+    text-transform: uppercase; font-weight: 600; }
+  .instance .pill { background: #2a2447; color: var(--inst); }
+  .manifold .pill { background: #143331; color: var(--accent); }
+  fieldset:disabled .ctl { opacity: .5; }
+  .ctl { margin-bottom: 12px; }
+  .ctl:last-child { margin-bottom: 0; }
+  .ctl .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .ctl .name { font-size: 13px; }
+  .ctl .val { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .instance .ctl .val { color: var(--inst); }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin-top: 4px; }
+  .instance input[type=range] { accent-color: var(--inst); }
+  select {
+    width: 100%; background: var(--bg); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px; margin-top: 4px;
+  }
+  .map { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 6px; }
+  .map label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+    display: block; text-align: center; margin-bottom: 2px; }
+  .map select { padding: 4px 2px; text-align: center; font-family: var(--mono); margin-top: 0; }
+  /* ── slices ── */
+  .slice { border: 1px solid var(--line); border-radius: 9px; padding: 11px;
+    margin-bottom: 12px; background: #0f1822; }
+  .slice .shead { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .sdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .slice .shead .sname { font-size: 12px; font-weight: 600; letter-spacing: .04em; }
+  .slice .shead select { margin: 0; flex: 1; font-size: 12px; padding: 4px 6px; width: auto; }
+  .xbtn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 15px;
+    padding: 0 4px; line-height: 1; }
+  .xbtn:hover { color: var(--hot); }
+  .srow { display: flex; gap: 8px; }
+  .srow > .ctl { flex: 1; }
+  .members { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+  .mchip { font-family: var(--mono); font-size: 10px; min-width: 21px; padding: 3px 0;
+    text-align: center; border-radius: 5px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--muted); cursor: pointer; }
+  .mchip.on { color: #06231f; font-weight: 700; }
+  .strip { display: block; width: 100%; height: 48px; margin-top: 9px;
+    background: #0a0f16; border: 1px solid #1b2430; border-radius: 6px; }
+  .addbtn { width: 100%; background: none; border: 1px dashed var(--line); color: var(--muted);
+    padding: 8px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  .addbtn:hover { color: var(--accent); border-color: var(--accent); }
+  /* ── connection ── */
+  .conn { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+  button.cta {
+    background: var(--accent); color: #06231f; border: 0; border-radius: 6px;
+    padding: 8px 14px; font-weight: 600; cursor: pointer; font-size: 13px;
+  }
+  button.cta.off { background: var(--line); color: var(--ink); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot.err { background: var(--hot); }
+  .status { font-size: 12px; color: var(--muted); }
+  .locknote { font-size: 11px; color: var(--inst); margin-top: 8px; display: none; }
+  fieldset:disabled + .locknote { display: block; }
+  /* ── stage ── */
+  main { position: relative; display: grid; place-items: center; }
+  canvas#stage { background: radial-gradient(circle at 50% 45%, #11161f, #0a0d12); cursor: grab; }
+  canvas#stage:active { cursor: grabbing; }
+  .readout {
+    position: absolute; bottom: 16px; left: 16px; right: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    display: flex; gap: 22px; flex-wrap: wrap;
+  }
+  .readout b { color: var(--ink); font-weight: 600; }
+  .hint3d { position: absolute; top: 14px; left: 16px; font-size: 11px; color: var(--muted); }
+  details { position: absolute; top: 14px; right: 16px; width: 330px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  summary { cursor: pointer; padding: 8px 12px; font-size: 12px; color: var(--muted); }
+  pre { margin: 0; padding: 0 12px 12px; font-family: var(--mono); font-size: 11px;
+    color: var(--accent); white-space: pre-wrap; word-break: break-all; max-height: 50vh; overflow: auto; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Wave Manipulation</h1>
+  <div class="sub">manifold-space authoring — slices of the unit sphere</div>
+
+  <div class="conn">
+    <button id="connectBtn" class="cta off">Connect</button>
+    <span class="dot" id="dot"></span>
+    <span class="status" id="status">offline</span>
+  </div>
+
+  <!-- ════ INSTANCE: the real-space session (sent once, locked while live) ════ -->
+  <div class="zone instance">
+    <div class="ztitle"><span class="pill">instance</span> real-space session</div>
+    <div class="zhint">The physical setup. Sent as one SceneConfig on Connect, then
+      fixed — like real life, changing it means a new session (Disconnect to edit).</div>
+    <fieldset id="instanceFs">
+      <div class="ctl">
+        <div class="row"><span class="name">Object</span></div>
+        <select id="object"><option value="sphere">sphere (r = 0.04)</option></select>
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="name">Manipulator drive</span></div>
+        <select id="driver">
+          <option value="fingertips">fingertips (real contact)</option>
+          <option value="ghosts">ghosts (forgiving demo)</option>
+        </select>
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="name">Finger → node assignment</span></div>
+        <div class="zhint" style="margin:2px 0 0">which physical finger occupies each manifold node</div>
+        <div class="map" id="map"></div>
+      </div>
+    </fieldset>
+    <div class="locknote">session live — disconnect to change the instance</div>
+  </div>
+
+  <!-- ════ MANIFOLD: the dimensionless gait (streamed every change) ════ -->
+  <div class="zone manifold">
+    <div class="ztitle"><span class="pill">manifold</span> dimensionless gait</div>
+    <div class="zhint">Author waves on <b>slices</b> (great circles) of the unit sphere —
+      any direction. A standing wave is the sum of two opposing travelling waves; its
+      flow runs perpendicular, through the wave's nodes. Streamed live as ControlState.</div>
+
+    <div class="ctl">
+      <div class="row"><span class="name">Contact nodes N <span class="pill" style="background:#2a2447;color:var(--inst)">session</span></span><span class="val" id="vN">8</span></div>
+      <input id="N" type="range" min="5" max="16" step="1" value="8" />
+      <div class="zhint" style="margin:4px 0 0">ring resolution — rebuilds the scene, so fixed while live</div>
+    </div>
+
+    <div class="ctl">
+      <div class="row"><span class="name">Preset gait</span></div>
+      <select id="preset">
+        <option value="">— choose —</option>
+        <option value="cup">cup spin (travelling wave)</option>
+        <option value="pinch">pinch roll (standing wave, ⊥ flow)</option>
+        <option value="hybrid">rotating pinch (cup + standing)</option>
+      </select>
+    </div>
+
+    <div id="slices"></div>
+    <button class="addbtn" id="addSlice">+ add slice</button>
+  </div>
+</aside>
+
+<main>
+  <canvas id="stage" width="640" height="640"></canvas>
+  <div class="hint3d">drag to orbit</div>
+  <div class="readout">
+    <span>t <b id="rt">0.0</b>s</span>
+    <span>contacts <b id="rc">0</b>/<b id="rn">8</b></span>
+    <span>ω_body <b id="rw">[0, 0, 1.0]</b></span>
+    <span id="rsent">sent: —</span>
+  </div>
+  <details>
+    <summary>messages (SceneConfig once · ControlState streamed)</summary>
+    <pre id="json"></pre>
+  </details>
+</main>
+
+<script>
+// Surface script errors in the status line (module load/parse errors included).
+window.addEventListener('error', (e) => {
+  const s = document.getElementById('status'), d = document.getElementById('dot');
+  if (s) s.textContent = 'script error: ' + (e.message || e.error || 'unknown');
+  if (d) d.className = 'dot err';
+});
+</script>
+<script type="module">
+import { prescribe, makePrimitive, waveValue, threshold, waveOmega, isMember,
+         slicePoint, planeBasis, normalize3, CONTACT_EPS } from './kernel.js';
+
+const $ = (id) => document.getElementById(id);
+const TWO_PI = Math.PI * 2;
+const SESSION = crypto.randomUUID();
+const FINGERS = ['ff', 'mf', 'rf', 'lf', 'th'];
+const MAP_DEFAULT = { ff: 5, mf: 6, rf: 7, lf: 0, th: 3 };
+const SLICE_COLORS = ['#5ad1c4', '#f2c94c', '#9b8cff'];
+const SLICE_NAMES = ['A', 'B', 'C'];
+const MAX_SLICES = 3;
+
+const nContacts = () => +$('N').value;        // ring resolution (the manifold's nodes)
+
+// ── slice state: the authoring model behind the ControlState ────────────────
+// members: null = all nodes, else array of recruited node indices.
+function defaultSlice(over = {}) {
+  return { type: 'travelling', orient: 'z', az: 0, el: 90, k: 1, dc: 0.7,
+           rate: 1.0, anchorNode: 0, flow: 'spin', members: null, ...over };
+}
+let slices = [defaultSlice()];
+
+const PRESETS = {
+  cup: () => [defaultSlice()],
+  pinch: () => [defaultSlice({ type: 'standing', dc: 0.5, flow: 'roll' })],
+  hybrid: () => [defaultSlice(),
+                 defaultSlice({ type: 'standing', dc: 0.5, flow: 'roll', rate: 0.5 })],
+};
+
+function sliceNormalVec(s) {
+  if (s.orient === 'z') return [0, 0, 1];
+  if (s.orient === 'x') return [1, 0, 0];
+  if (s.orient === 'y') return [0, 1, 0];
+  const az = s.az * Math.PI / 180, el = s.el * Math.PI / 180;
+  return [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)];
+}
+const anchorXi = (s) => (s.anchorNode % nContacts()) * TWO_PI / nContacts();
+
+// Flow axis: spin = the slice normal; roll = perpendicular, through the
+// standing wave's two envelope nodes (in-plane radial at the anchor).
+function flowAxis(s) {
+  if (s.flow === 'roll') return slicePoint(sliceNormalVec(s), anchorXi(s));
+  return sliceNormalVec(s);
+}
+
+// ── finger→node mapping selects, regenerated to match N ──────────────────────
+const mapEl = $('map');
+function buildMap() {
+  const N = nContacts();
+  for (const f of FINGERS) {
+    const prev = $('map_' + f) ? +$('map_' + f).value : MAP_DEFAULT[f];
+    const sel = Math.min(prev, N - 1);          // clamp if N shrank
+    const opts = Array.from({ length: N }, (_, i) =>
+      `<option value="${i}" ${i === sel ? 'selected' : ''}>${i}</option>`).join('');
+    let wrap = $('mapwrap_' + f);
+    if (!wrap) { wrap = document.createElement('div'); wrap.id = 'mapwrap_' + f; mapEl.appendChild(wrap); }
+    wrap.innerHTML = `<label>${f}</label><select id="map_${f}">${opts}</select>`;
+  }
+}
+buildMap();
+function fingerNodeMapping() {
+  return Object.fromEntries(FINGERS.map((f) => [f, +$('map_' + f).value]));
+}
+
+// ── read the UI into a SceneConfig (instance) + ControlState (manifold) ──────
+function sceneConfig() {
+  return {
+    schema: 'wave-manip/scene-config@1',
+    session: SESSION,
+    manipulator: 'shadow_hand',
+    driver: $('driver').value,
+    object: { shape: $('object').value, radius: 0.04, mass: 0.05, friction: 1.0 },
+    n_contacts: nContacts(),
+    finger_node_mapping: fingerNodeMapping(),
+  };
+}
+function controlState() {
+  return {
+    schema: 'wave-manip/control-state@2',
+    session: SESSION,
+    primitives: slices.map((s, i) => ({
+      name: 'slice' + SLICE_NAMES[i],
+      manifold: { kind: 'bodyCircle', isClosed: true, normUnit: TWO_PI,
+                  params: { normal: sliceNormalVec(s) } },
+      // The Rate knob couples wave speed c to the flow omega (Phase-2 lock).
+      wave: { type: s.type, k: s.type === 'standing' ? 1 : s.k, c: s.rate,
+              dc: s.dc, amp: 0.15, nWave: nContacts(), wavePhase: 0,
+              anchor: s.type === 'standing' ? anchorXi(s) : 0 },
+      flows: s.flow === 'none' ? [] :
+        [{ kind: 'bodyRotation', lock: 'free', axis: flowAxis(s), omega: s.rate }],
+      members: s.members,
+      cLock: 'free',
+    })),
+  };
+}
+
+// ── live websocket link to the bridge ────────────────────────────────────────
+let ws = null;
+function setStatus(text, cls) { $('status').textContent = text; $('dot').className = 'dot ' + (cls || ''); }
+function connected() { return ws && ws.readyState === WebSocket.OPEN; }
+// the instance fieldset + N (which rebuilds the scene) are fixed for the session
+function lockInstance(locked) { $('instanceFs').disabled = locked; $('N').disabled = locked; }
+
+$('connectBtn').onclick = () => {
+  if (connected()) { ws.close(); return; }
+  setStatus('connecting…', '');
+  ws = new WebSocket('ws://localhost:8765');
+  ws.onopen = () => {
+    setStatus('live', 'on'); $('connectBtn').textContent = 'Disconnect'; $('connectBtn').className = 'cta';
+    lockInstance(true);                 // instance is fixed for the session
+    ws.send(JSON.stringify(sceneConfig()));
+    pushControl();
+  };
+  ws.onclose = () => {
+    setStatus('offline', ''); $('connectBtn').textContent = 'Connect'; $('connectBtn').className = 'cta off';
+    lockInstance(false);
+  };
+  ws.onerror = () => setStatus('bridge not found', 'err');
+  ws.onmessage = (e) => { /* Phase 4: Feedback */ };
+};
+
+function pushControl() {
+  const cs = controlState();
+  $('json').textContent =
+    '// SceneConfig (sent on Connect)\n' + JSON.stringify(sceneConfig(), null, 2) +
+    '\n\n// ControlState (streamed)\n' + JSON.stringify(cs, null, 2);
+  if (connected()) { ws.send(JSON.stringify(cs)); $('rsent').textContent = 'sent: ' + new Date().toLocaleTimeString(); }
+}
+
+// ── slice cards ──────────────────────────────────────────────────────────────
+const slicesEl = $('slices');
+
+function memberChips(s, si) {
+  const N = nContacts();
+  const chips = Array.from({ length: N }, (_, i) => {
+    const on = s.members === null || s.members.includes(i);
+    const style = on ? `background:${SLICE_COLORS[si]};border-color:${SLICE_COLORS[si]}` : '';
+    return `<button class="mchip ${on ? 'on' : ''}" style="${style}" data-si="${si}" data-node="${i}">${i}</button>`;
+  }).join('');
+  return chips;
+}
+
+function sliceCard(s, si) {
+  const col = SLICE_COLORS[si];
+  const trav = s.type === 'travelling';
+  return `
+  <div class="slice" data-si="${si}" style="border-color:${col}44">
+    <div class="shead">
+      <span class="sdot" style="background:${col}"></span>
+      <span class="sname" style="color:${col}">SLICE ${SLICE_NAMES[si]}</span>
+      <select data-f="type" data-si="${si}">
+        <option value="travelling" ${trav ? 'selected' : ''}>travelling wave (cup)</option>
+        <option value="standing" ${!trav ? 'selected' : ''}>standing = two opposing waves (pinch)</option>
+      </select>
+      ${slices.length > 1 ? `<button class="xbtn" data-del="${si}" title="remove slice">×</button>` : ''}
+    </div>
+    <div class="ctl">
+      <div class="row"><span class="name">Slice orientation (normal)</span></div>
+      <select data-f="orient" data-si="${si}">
+        <option value="z" ${s.orient === 'z' ? 'selected' : ''}>z — equator (ring plane)</option>
+        <option value="x" ${s.orient === 'x' ? 'selected' : ''}>x — meridian</option>
+        <option value="y" ${s.orient === 'y' ? 'selected' : ''}>y — meridian</option>
+        <option value="custom" ${s.orient === 'custom' ? 'selected' : ''}>custom (az / el)</option>
+      </select>
+    </div>
+    ${s.orient === 'custom' ? `
+    <div class="srow">
+      <div class="ctl">
+        <div class="row"><span class="name">azimuth</span><span class="val" data-v="az-${si}">${s.az}°</span></div>
+        <input type="range" min="-180" max="180" step="5" value="${s.az}" data-f="az" data-si="${si}" />
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="name">elevation</span><span class="val" data-v="el-${si}">${s.el}°</span></div>
+        <input type="range" min="-90" max="90" step="5" value="${s.el}" data-f="el" data-si="${si}" />
+      </div>
+    </div>` : ''}
+    <div class="srow">
+      ${trav ? `
+      <div class="ctl">
+        <div class="row"><span class="name">k</span><span class="val" data-v="k-${si}">${s.k}</span></div>
+        <input type="range" min="1" max="6" step="1" value="${s.k}" data-f="k" data-si="${si}" />
+      </div>` : `
+      <div class="ctl">
+        <div class="row"><span class="name">node anchor</span><span class="val" data-v="anchorNode-${si}">${s.anchorNode}</span></div>
+        <input type="range" min="0" max="${nContacts() - 1}" step="1" value="${s.anchorNode}" data-f="anchorNode" data-si="${si}" />
+      </div>`}
+      <div class="ctl">
+        <div class="row"><span class="name">duty</span><span class="val" data-v="dc-${si}">${s.dc.toFixed(2)}</span></div>
+        <input type="range" min="0.05" max="0.95" step="0.01" value="${s.dc}" data-f="dc" data-si="${si}" />
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="name">rate</span><span class="val" data-v="rate-${si}">${s.rate.toFixed(2)}</span></div>
+        <input type="range" min="-3" max="3" step="0.05" value="${s.rate}" data-f="rate" data-si="${si}" />
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="row"><span class="name">Flow (body motion)</span></div>
+      <select data-f="flow" data-si="${si}">
+        <option value="spin" ${s.flow === 'spin' ? 'selected' : ''}>spin — about the slice normal (along wave)</option>
+        <option value="roll" ${s.flow === 'roll' ? 'selected' : ''}>roll — ⊥ through the wave nodes (pinch drive)</option>
+        <option value="none" ${s.flow === 'none' ? 'selected' : ''}>none — contact pattern only</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <div class="row"><span class="name">Node membership</span>
+        <span class="val" style="font-size:10px">${s.members === null ? 'all' : s.members.length + '/' + nContacts()}</span></div>
+      <div class="members">${memberChips(s, si)}</div>
+    </div>
+    <canvas class="strip" data-strip="${si}" width="300" height="48"></canvas>
+  </div>`;
+}
+
+function rebuildSlices() {
+  slicesEl.innerHTML = slices.map((s, i) => sliceCard(s, i)).join('');
+  $('addSlice').style.display = slices.length < MAX_SLICES ? '' : 'none';
+  pushControl();
+}
+
+// Event delegation for all slice controls.
+slicesEl.addEventListener('input', (e) => {
+  const f = e.target.dataset.f, si = +e.target.dataset.si;
+  if (f === undefined || isNaN(si)) return;
+  const s = slices[si];
+  if (f === 'type' || f === 'orient' || f === 'flow') {
+    s[f] = e.target.value;
+    if (f === 'type' && s.type === 'standing') { s.dc = 0.5; s.flow = s.flow === 'spin' ? 'roll' : s.flow; }
+    if (f === 'type' && s.type === 'travelling' && s.flow === 'roll') s.flow = 'spin';
+    rebuildSlices();
+    return;
+  }
+  s[f] = +e.target.value;
+  const v = slicesEl.querySelector(`[data-v="${f}-${si}"]`);
+  if (v) v.textContent = f === 'dc' || f === 'rate' ? (+e.target.value).toFixed(2)
+                       : f === 'az' || f === 'el' ? e.target.value + '°' : e.target.value;
+  pushControl();
+});
+slicesEl.addEventListener('click', (e) => {
+  if (e.target.dataset.del !== undefined) {
+    slices.splice(+e.target.dataset.del, 1);
+    rebuildSlices();
+    return;
+  }
+  if (e.target.classList.contains('mchip')) {
+    const si = +e.target.dataset.si, node = +e.target.dataset.node;
+    const s = slices[si];
+    const N = nContacts();
+    let m = s.members === null ? Array.from({ length: N }, (_, i) => i) : s.members.slice();
+    m = m.includes(node) ? m.filter((i) => i !== node) : m.concat(node).sort((a, b) => a - b);
+    s.members = m.length === N ? null : m;
+    rebuildSlices();
+  }
+});
+$('addSlice').onclick = () => {
+  if (slices.length < MAX_SLICES) {
+    slices.push(defaultSlice({ type: 'standing', dc: 0.5, flow: 'roll', rate: 0.5 }));
+    rebuildSlices();
+  }
+};
+$('preset').addEventListener('change', (e) => {
+  if (PRESETS[e.target.value]) { slices = PRESETS[e.target.value](); rebuildSlices(); }
+});
+
+// N is session-fixed (rebuilds the scene): only editable while offline; it
+// resizes the finger→node mapping, membership chips and anchor ranges.
+$('N').addEventListener('input', (e) => {
+  $('vN').textContent = e.target.value | 0;
+  const N = nContacts();
+  for (const s of slices) {
+    s.anchorNode = Math.min(s.anchorNode, N - 1);
+    if (s.members !== null) s.members = s.members.filter((i) => i < N);
+  }
+  buildMap();
+  rebuildSlices();
+});
+
+// ── 3D preview: orthographic, drag-to-orbit ──────────────────────────────────
+const cv = $('stage'), ctx = cv.getContext('2d');
+const CX = cv.width / 2, CY = cv.height / 2, R3 = 215;
+let viewYaw = -0.5, viewPitch = 0.42;
+let dragging = false, lastX = 0, lastY = 0;
+cv.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  viewYaw += (e.clientX - lastX) * 0.008;
+  viewPitch = Math.max(-1.4, Math.min(1.4, viewPitch + (e.clientY - lastY) * 0.008));
+  lastX = e.clientX; lastY = e.clientY;
+});
+cv.addEventListener('pointerup', () => { dragging = false; });
+
+// Project a manifold-space point: yaw about z, pitch about x, orthographic.
+// Returns [screenX, screenY, depth] — depth > 0 is away from the viewer.
+function project(p) {
+  const cy = Math.cos(viewYaw), sy = Math.sin(viewYaw);
+  const cp = Math.cos(viewPitch), sp = Math.sin(viewPitch);
+  const x1 = cy * p[0] - sy * p[1];
+  const y1 = sy * p[0] + cy * p[1];
+  const z1 = p[2];
+  const y2 = cp * y1 - sp * z1;     // depth axis
+  const z2 = sp * y1 + cp * z1;     // screen up
+  return [CX + R3 * x1, CY - R3 * z2, y2];
+}
+
+// ── the juggling ball: a shaded unit sphere with beach-ball wedges, spun by ω ──
+// A software sphere so the body's rotation is visible: each pixel back-projects
+// to a surface point, the body-fixed "paint" (longitude wedges + pole caps)
+// is read through the integrated body orientation, and it's diffuse-lit. The
+// wedges advance frame to frame exactly with the prescribed ω — that *is* the
+// readout for body motion (the flat gradient sphere of v1 couldn't show it).
+const BUF_D = 240;                       // ball texture buffer resolution (px)
+const BR = BUF_D / 2;
+const ballCv = document.createElement('canvas');
+ballCv.width = ballCv.height = BUF_D;
+const ballCtx = ballCv.getContext('2d');
+const ballImg = ballCtx.createImageData(BUF_D, BUF_D);
+const ballData = ballImg.data;
+const WEDGE = [[224, 85, 107], [242, 201, 76], [90, 209, 196], [155, 140, 255]]; // rose·amber·teal·violet
+const NSEG = 8;                          // 8 longitude wedges (two colour cycles)
+const CAP = [40, 48, 68];                // dark pole caps
+const LIGHT = (() => { const v = [-0.5, 0.62, -0.6], n = Math.hypot(...v); return [v[0] / n, v[1] / n, v[2] / n]; })();
+
+// body orientation, integrated from ω each frame (world/manifold frame).
+let bodyRot = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+function mat3mul(a, b) {
+  const o = new Array(9);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++)
+    o[r * 3 + c] = a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c];
+  return o;
+}
+function spinBodyAxis(A, ang) {                // bodyRot ← R(A, ang) · bodyRot, A unit
+  if (Math.abs(ang) < 1e-9) return;
+  const x = A[0], y = A[1], z = A[2];
+  const c = Math.cos(ang), s = Math.sin(ang), tt = 1 - c;
+  bodyRot = mat3mul(
+    [tt * x * x + c, tt * x * y - s * z, tt * x * z + s * y,
+     tt * x * y + s * z, tt * y * y + c, tt * y * z - s * x,
+     tt * x * z - s * y, tt * y * z + s * x, tt * z * z + c], bodyRot);
+}
+// Rotate a vector about unit axis A by `ang` (Rodrigues) — a node riding the
+// body's latitude circle about the flow axis, so its drag is a true surface arc.
+function rotAxis(v, A, ang) {
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const d = A[0] * v[0] + A[1] * v[1] + A[2] * v[2];
+  return [
+    v[0] * c + (A[1] * v[2] - A[2] * v[1]) * s + A[0] * d * (1 - c),
+    v[1] * c + (A[2] * v[0] - A[0] * v[2]) * s + A[1] * d * (1 - c),
+    v[2] * c + (A[0] * v[1] - A[1] * v[0]) * s + A[2] * d * (1 - c),
+  ];
+}
+function renderBall() {
+  const cyaw = Math.cos(viewYaw), syaw = Math.sin(viewYaw);
+  const cp = Math.cos(viewPitch), sp = Math.sin(viewPitch), B = bodyRot;
+  let o = 0;
+  for (let py = 0; py < BUF_D; py++) {
+    const vv = (BR - py) / BR;                 // screen up
+    for (let px = 0; px < BUF_D; px++, o += 4) {
+      const uu = (px - BR) / BR;               // screen right
+      const rr = uu * uu + vv * vv;
+      if (rr > 1) { ballData[o + 3] = 0; continue; }
+      const depth = Math.sqrt(1 - rr);         // toward viewer
+      const Vr = uu, Vu = vv, Vd = -depth;     // view coords (right, up, away)
+      // manifold point P = Rviewᵀ·V  (inverse of project()'s view rotation)
+      const P0 = cyaw * Vr + sp * syaw * Vu + cp * syaw * Vd;
+      const P1 = -syaw * Vr + sp * cyaw * Vu + cp * cyaw * Vd;
+      const P2 = cp * Vu - sp * Vd;
+      // body-fixed paint coord  b = bodyRotᵀ·P
+      const b0 = B[0] * P0 + B[3] * P1 + B[6] * P2;
+      const b1 = B[1] * P0 + B[4] * P1 + B[7] * P2;
+      const b2 = B[2] * P0 + B[5] * P1 + B[8] * P2;
+      const lat = Math.asin(b2 < -1 ? -1 : b2 > 1 ? 1 : b2);
+      let col, seam = 1;
+      if (Math.abs(lat) > 1.32) col = CAP;     // pole caps
+      else {
+        const frac = ((Math.atan2(b1, b0) + Math.PI) / (2 * Math.PI)) * NSEG;
+        col = WEDGE[(frac | 0) % WEDGE.length];
+        seam = Math.abs(frac - Math.round(frac)); // 0 at a wedge boundary
+      }
+      let nd = Vr * LIGHT[0] + Vu * LIGHT[1] + Vd * LIGHT[2];
+      if (nd < 0) nd = 0;
+      const spec = Math.pow(nd, 18) * 0.6 * 255;
+      const sh = (0.32 + 0.68 * nd) * (0.58 + 0.42 * depth) * (seam < 0.05 ? 0.45 : 1);
+      ballData[o]     = Math.min(255, col[0] * sh + spec);
+      ballData[o + 1] = Math.min(255, col[1] * sh + spec);
+      ballData[o + 2] = Math.min(255, col[2] * sh + spec);
+      ballData[o + 3] = 255;
+    }
+  }
+  ballCtx.putImageData(ballImg, 0, 0);
+}
+
+function phasedPrim(p, t) {
+  return { ...p, wave: { ...p.wave, wavePhase: p.wave.wavePhase + waveOmega(p) * t } };
+}
+
+// Draw a 3D polyline on the unit sphere, split into front/back passes.
+function drawCurve(points, color, widthFront, back) {
+  ctx.lineCap = 'round';
+  for (const front of [false, true]) {
+    ctx.beginPath();
+    let pen = false;
+    for (const pt of points) {
+      const [x, y, d] = project(pt);
+      const isFront = d <= 0;
+      if (isFront === front && pt !== null) {
+        if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+      } else pen = false;
+    }
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = front ? 1 : (back ? 0.22 : 0);
+    ctx.lineWidth = front ? widthFront : Math.max(1, widthFront - 1);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawArrowHead(tip3, dir3, color) {
+  const [tx, ty] = project(tip3);
+  const [bx, by] = project([tip3[0] - dir3[0] * 0.14, tip3[1] - dir3[1] * 0.14, tip3[2] - dir3[2] * 0.14]);
+  const ang = Math.atan2(ty - by, tx - bx);
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(tx - 11 * Math.cos(ang - 0.45), ty - 11 * Math.sin(ang - 0.45));
+  ctx.lineTo(tx - 11 * Math.cos(ang + 0.45), ty - 11 * Math.sin(ang + 0.45));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// Curved arrow showing rotation sense about `axis` (sign of omega).
+function drawSpinArrow(axis, omega, color) {
+  if (Math.abs(omega) < 1e-3) return;
+  const a = normalize3(axis);
+  const [e1, e2] = planeBasis(a);
+  const rr = 0.34, off = 0.8, dir = Math.sign(omega);
+  const pts = [];
+  for (let i = 0; i <= 40; i++) {
+    const th = dir * (i / 40) * 4.6;
+    pts.push([
+      off * a[0] + rr * (Math.cos(th) * e1[0] + Math.sin(th) * e2[0]),
+      off * a[1] + rr * (Math.cos(th) * e1[1] + Math.sin(th) * e2[1]),
+      off * a[2] + rr * (Math.cos(th) * e1[2] + Math.sin(th) * e2[2]),
+    ]);
+  }
+  drawCurve(pts, color, 2.2, true);
+  const last = pts[pts.length - 1], prev = pts[pts.length - 2];
+  drawArrowHead(last, normalize3([last[0] - prev[0], last[1] - prev[1], last[2] - prev[2]]), color);
+  // axis line + tip
+  const axPts = [];
+  for (let i = 0; i <= 24; i++) { const u = -1.25 + (i / 24) * 2.5; axPts.push([a[0] * u, a[1] * u, a[2] * u]); }
+  drawCurve(axPts, color, 1.2, true);
+  drawArrowHead([a[0] * 1.25, a[1] * 1.25, a[2] * 1.25], a, color);
+}
+
+// Per-slice wave strip: W(ξ) at time t, threshold, node ticks; for standing
+// waves also the two opposing travelling components it is the sum of.
+function drawStrip(canvas, prim, s, si, t) {
+  const w = canvas.width, h = canvas.height;
+  const g = canvas.getContext('2d');
+  g.clearRect(0, 0, w, h);
+  const col = SLICE_COLORS[si];
+  const T = threshold(prim);
+  const yOf = (v) => h / 2 - v * (h / 2 - 4);
+  const ph = phasedPrim(prim, t);
+  // threshold line + contact fill
+  g.strokeStyle = '#3a4556'; g.setLineDash([3, 3]);
+  g.beginPath(); g.moveTo(0, yOf(T)); g.lineTo(w, yOf(T)); g.stroke();
+  g.setLineDash([]);
+  // opposing components (standing only)
+  if (prim.wave.type === 'standing') {
+    const a0 = prim.wave.anchor, kk = prim.wave.k, phv = ph.wave.wavePhase;
+    for (const sgn of [-1, 1]) {
+      g.beginPath();
+      for (let i = 0; i <= w; i++) {
+        const xi = (i / w) * TWO_PI;
+        const v = 0.5 * Math.sin(kk * (xi - a0) + sgn * phv);
+        i === 0 ? g.moveTo(i, yOf(v)) : g.lineTo(i, yOf(v));
+      }
+      g.strokeStyle = col; g.globalAlpha = 0.3; g.lineWidth = 1; g.stroke(); g.globalAlpha = 1;
+    }
+  }
+  // the wave itself, contact part emphasized
+  g.beginPath();
+  for (let i = 0; i <= w; i++) {
+    const xi = (i / w) * TWO_PI;
+    const v = waveValue(ph, xi);
+    i === 0 ? g.moveTo(i, yOf(v)) : g.lineTo(i, yOf(v));
+  }
+  g.strokeStyle = col; g.lineWidth = 1.6; g.stroke();
+  // node ticks
+  const N = nContacts();
+  for (let i = 0; i < N; i++) {
+    const x = (i / N) * w;
+    const member = isMember({ members: s.members }, i);
+    const v = waveValue(ph, (i / N) * TWO_PI);
+    const inC = member && v - T <= CONTACT_EPS;
+    g.beginPath(); g.arc(x, yOf(v), 2.6, 0, TWO_PI);
+    g.fillStyle = !member ? '#2c3950' : inC ? '#ff7b6b' : '#8b949e';
+    g.fill();
+  }
+}
+
+// ── main draw loop ────────────────────────────────────────────────────────────
+let t0 = performance.now();
+let lastNow = t0, ballInit = true;
+let dragAngle = [];                 // per-node tangential slide (contact drag)
+
+function draw(now) {
+  const t = (now - t0) / 1000;
+  let dt = (now - lastNow) / 1000; lastNow = now;
+  if (dt > 0.05) dt = 0.05;          // clamp tab-refocus jumps
+  const N = nContacts();
+  const cs = controlState();
+  const pres = prescribe(cs, N, t);
+  const prims = cs.primitives.map(makePrimitive);
+  const omega = pres.body_motion.omega_world;
+
+  // ── finger-driven drag: the nodes do the work, the ball follows them ─────────
+  // Every node in contact grips the SAME solid ball, so all contacting nodes
+  // move together at ONE shared ball speed — never one-at-a-time, never frozen
+  // mid-grip (that was the old per-node cap: a node hit its limit and stalled
+  // while still gripping, which a rigid object forbids). The ball turns only
+  // while ≥1 node grips. Its speed is set so a node sweeps exactly one stroke
+  // (DRAG_MAX) over its contact window (dc·period) and returns home over the
+  // break window ((1−dc)·period). At dc=0.5 that makes the hand-off seamless:
+  // one set finishes and breaks exactly as the other engages — no spring-pause.
+  // Nodes ride latitude circles about the flow axis, so the stroke is a true arc.
+  const ringNormal = prims.length ? prims[0].manifold.params.normal : [0, 0, 1];
+  const wMag = Math.hypot(omega[0], omega[1], omega[2]);
+  const A = wMag > 1e-6 ? [omega[0] / wMag, omega[1] / wMag, omega[2] / wMag] : null;
+  if (dragAngle.length !== N) dragAngle = new Array(N).fill(0);
+  const DRAG_MAX = Math.min(1.0, 1.7 * TWO_PI / N);     // per-node stroke length
+  const w0 = prims.length ? Math.abs(waveOmega(prims[0])) : 0;      // wave rate
+  const dcRep = prims.length ? prims[0].wave.dc : 0.5;
+  // speeds that fit one full stroke into the wave's contact / break windows, so
+  // the grip and the return each exactly span their phase (period = 2π/w0).
+  const gripSpeed   = w0 > 1e-4 ? DRAG_MAX * w0 / (Math.max(0.05, dcRep) * TWO_PI) : 0;
+  const returnSpeed = w0 > 1e-4 ? DRAG_MAX * w0 / (Math.max(0.05, 1 - dcRep) * TWO_PI)
+                                : DRAG_MAX / 0.4;
+  let anyGrip = false, nContact = 0;
+  for (const nd of pres.nodes) if (nd.contact) { nContact++; if (A) anyGrip = true; }
+  const ballStep = anyGrip ? gripSpeed * dt : 0;        // the one shared motion
+  if (A && ballStep > 0) spinBodyAxis(A, ballStep);     // the fingers turn the ball
+  const nodePts = pres.nodes.map((nd) => {
+    if (nd.contact && A) {
+      dragAngle[nd.i] = Math.min(DRAG_MAX, dragAngle[nd.i] + ballStep);   // move WITH the ball
+    } else {
+      dragAngle[nd.i] = Math.max(0, dragAngle[nd.i] - returnSpeed * dt);  // smooth return home
+    }
+    const rr = 1 + nd.lift * 0.55;
+    const base = slicePoint(ringNormal, nd.xi_norm);
+    const slid = A ? rotAxis(base, A, dragAngle[nd.i]) : base;
+    return { nd, home: [base[0] * rr, base[1] * rr, base[2] * rr],
+             p3: [slid[0] * rr, slid[1] * rr, slid[2] * rr] };
+  });
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // back halves of slice circles + contact windows
+  const circlePts = prims.map((p) => {
+    const n = p.manifold.params.normal;
+    return Array.from({ length: 129 }, (_, i) => slicePoint(n, (i / 128) * TWO_PI));
+  });
+
+  prims.forEach((p, i) => drawCurve(circlePts[i], SLICE_COLORS[i], 1.4, true));
+
+  // body (unit sphere): the juggling ball, drawn between back and front passes.
+  // Semi-transparent so the back-hemisphere slice guides read through it.
+  // Re-rendered only when it actually turned (ballStep) or the view is dragged.
+  if (ballInit || dragging || ballStep > 1e-6) { renderBall(); ballInit = false; }
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX, CY, R3, 0, TWO_PI); ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalAlpha = 0.82;                 // let the back-side guides show through
+  ctx.drawImage(ballCv, CX - R3, CY - R3, 2 * R3, 2 * R3);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(CX, CY, R3, 0, TWO_PI);
+  ctx.strokeStyle = 'rgba(8,12,18,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // front halves of slice circles + contact-window arcs
+  prims.forEach((p, i) => {
+    drawCurve(circlePts[i], SLICE_COLORS[i], 1.4, false);
+    // contact window: thick arc where W <= T (the region the wave holds down)
+    const ph = phasedPrim(p, t);
+    const T = threshold(p);
+    const n = p.manifold.params.normal;
+    const win = Array.from({ length: 161 }, (_, j) => {
+      const xi = (j / 160) * TWO_PI;
+      return waveValue(ph, xi) - T <= CONTACT_EPS ? slicePoint(n, xi) : null;
+    });
+    // draw contiguous in-contact runs
+    ctx.lineCap = 'round';
+    for (const front of [false, true]) {
+      ctx.beginPath();
+      let pen = false;
+      for (const pt of win) {
+        if (pt === null) { pen = false; continue; }
+        const [x, y, d] = project(pt);
+        if ((d <= 0) === front) {
+          if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+        } else pen = false;
+      }
+      ctx.strokeStyle = SLICE_COLORS[i];
+      ctx.globalAlpha = front ? 0.95 : 0.18;
+      ctx.lineWidth = front ? 5 : 3;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  });
+
+  // nodes (computed above with the finger-drag): draw back ones first, then front
+  nodePts.sort((a, b) => project(b.p3)[2] - project(a.p3)[2]);
+  for (const { nd, home, p3 } of nodePts) {
+    const [x, y, d] = project(p3);
+    const front = d <= 0;
+    const recruited = prims.some((p) => isMember(p, nd.i));
+    // drag trail: home station → dragged grip point
+    if (dragAngle[nd.i] > 0.02) {
+      const [hx, hy] = project(home);
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(x, y);
+      ctx.strokeStyle = '#ff7b6b'; ctx.globalAlpha = front ? 0.55 : 0.18;
+      ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(hx, hy, 2, 0, TWO_PI);
+      ctx.fillStyle = '#54607a'; ctx.globalAlpha = front ? 0.8 : 0.3; ctx.fill(); ctx.globalAlpha = 1;
+    }
+    ctx.beginPath(); ctx.arc(x, y, nd.contact ? 10 : recruited ? 7 : 5, 0, TWO_PI);
+    ctx.fillStyle = nd.contact ? '#ff7b6b' : recruited ? '#384352' : '#232b38';
+    ctx.globalAlpha = front ? 1 : 0.35;
+    ctx.fill();
+    if (!recruited) { ctx.strokeStyle = '#2c3950'; ctx.lineWidth = 1; ctx.stroke(); }
+    // node index label
+    ctx.fillStyle = front ? '#aeb8c4' : '#5a6470';
+    ctx.font = '10px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(nd.i), x, y - 13);
+    ctx.globalAlpha = 1;
+  }
+
+  // flow arrows (one per primitive flow)
+  prims.forEach((p, i) => {
+    for (const f of p.flows) {
+      if (f.kind === 'bodyRotation') drawSpinArrow(f.axis, f.omega, SLICE_COLORS[i]);
+    }
+  });
+
+  // wave strips in the rail
+  prims.forEach((p, i) => {
+    const c = slicesEl.querySelector(`[data-strip="${i}"]`);
+    if (c && slices[i]) drawStrip(c, p, slices[i], i, t);
+  });
+
+  // readouts
+  $('rt').textContent = t.toFixed(1);
+  $('rc').textContent = nContact; $('rn').textContent = N;
+  $('rw').textContent = '[' + pres.body_motion.omega_world.map((v) => (+v).toFixed(2)).join(', ') + ']';
+  requestAnimationFrame(draw);
+}
+
+// instance + readout wiring
+$('driver').addEventListener('change', pushControl);
+$('object').addEventListener('change', pushControl);
+mapEl.addEventListener('change', pushControl);
+
+// ?preset=cup|pinch|hybrid preloads a gait (handy for demos and self-tests)
+const urlPreset = new URLSearchParams(location.search).get('preset');
+if (PRESETS[urlPreset]) { slices = PRESETS[urlPreset](); $('preset').value = urlPreset; }
+
+rebuildSlices();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
